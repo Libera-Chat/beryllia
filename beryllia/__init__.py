@@ -231,8 +231,8 @@ class Server(BaseServer):
     async def cmd_kcheck(self, nick: str, args: str):
         type, _, arg = args.partition(" ")
         if arg:
-            utcnow = int(datetime.utcnow().timestamp())
-            type   = type.lower()
+            now  = int(time.time())
+            type = type.lower()
             if   type == "nick":
                 kills = await self.database.find_kills_by_nick(arg)
             elif type == "host":
@@ -248,7 +248,7 @@ class Server(BaseServer):
                 if kline_id is not None:
                     kline = await self.database.get_kline(kline_id)
 
-                    kts_human   = _pretty_time(utcnow-kline.ts)
+                    kts_human   = _pretty_time(now-kline.ts)
                     setter_nick = kline.setter.split("!", 1)[0]
                     kline_s     = (f"K-Line: {kline.mask} {kts_human} ago"
                         f" by {setter_nick} for {kline.duration} mins")
@@ -256,7 +256,7 @@ class Server(BaseServer):
                     if kline.remove_at is not None:
                         remover  = kline.remove_by or "unknown"
                         kline_s += f" (removed by {remover})"
-                    elif (kline.ts+(kline.duration*60)) < utcnow:
+                    elif (kline.ts+(kline.duration*60)) < now:
                         kline_s += " (expired)"
 
                     kline_s += f": {kline.reason}"
