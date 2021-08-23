@@ -57,6 +57,7 @@ class Database(object):
                 SELECT id FROM klines
                 WHERE mask=? AND
                 remove_at IS NULL
+                ORDER BY id DESC
             """, [mask])
             row = await cursor.fetchone()
             if row is not None:
@@ -89,7 +90,6 @@ class Database(object):
             """, [mask, setter, duration, reason, int(time.time())])
             await db.commit()
 
-        # the most recent non-removed kline will be the above
         return await self.find_kline(mask) or -1 # -1 to fix typehint
 
     async def add_kill(self,
