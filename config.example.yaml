@@ -1,0 +1,15 @@
+server: irc.libera.chat:+6697
+nickname: beryllia
+password: beryllia:hunter2
+channel: "#libera-klines"
+
+sasl:
+  username: beryllia
+  password: hunter3
+
+oper:
+  name: beryllia
+  file: ~/oper.key
+  pass: hunter4
+
+database: ~/.klines.db
