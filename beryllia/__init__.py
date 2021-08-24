@@ -120,8 +120,8 @@ class Server(BaseServer):
 
         stats_kline = Response(RPL_STATSKLINE, [SELF, ANY])
         stats_end   = Response(RPL_ENDOFSTATS, [SELF, ANY])
-        #:lithium.libera.chat 216 sandcat sandcat :k 1.2.3.4 * * :piss off m8 (2021/8/23 20.24)|(launchd!launchd@localhost{launchd})
-        #:lithium.libera.chat 219 sandcat sandcat :k :End of /STATS report
+        #:lithium.libera.chat 216 sandcat k 1.2.3.4 * * :piss off m8 (2021/8/23 20.24)|(launchd!launchd@localhost{launchd})
+        #:lithium.libera.chat 219 sandcat k :End of /STATS report
 
         while True:
             stats_line = await self.wait_for({
