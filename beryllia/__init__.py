@@ -114,8 +114,8 @@ class Server(BaseServer):
     async def _find_unset(self):
         # check stats k (locally set kline) and g (kline set on another server)
         # to see if anything was unset while we were gone
-        klines        = await self.database.list_klines()
-        active_klines = list()
+        known_klines  = await self.database.list_klines()
+        active_klines = set()
         await self.send(build("STATS", ["k"]))
 
         stats_kline = Response(RPL_STATSKLINE, [SELF, ANY])
@@ -128,7 +128,7 @@ class Server(BaseServer):
                 stats_kline, stats_end
             })
             if stats_line.command == RPL_STATSKLINE:
-                active_klines.append(f"{stats_line.params[4]}@{stats_line.params[2]}")
+                active_klines.add(f"{stats_line.params[4]}@{stats_line.params[2]}")
             else:
                 break
 
@@ -139,13 +139,13 @@ class Server(BaseServer):
                 stats_kline, stats_end
             })
             if stats_line.command == RPL_STATSKLINE:
-                active_klines.append(f"{stats_line.params[4]}@{stats_line.params[2]}")
+                active_klines.add(f"{stats_line.params[4]}@{stats_line.params[2]}")
             else:
                 break
 
-        for id, mask in klines:
-            if not mask in active_klines:
-                await self.database.del_kline(id, None)
+        unset_klines = set(known_klines.keys()) - active_klines
+        for mask in unset_klines:
+            await self.database.del_kline(known_klines[mask], None)
 
 
     async def line_read(self, line: Line):

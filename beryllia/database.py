@@ -74,7 +74,7 @@ class Database(object):
             """)
             results = await cursor.fetchall()
             if results is not None:
-                return results
+                return {mask: id for id, mask in results}
             else:
                 return None
 
