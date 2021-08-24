@@ -65,6 +65,19 @@ class Database(object):
             else:
                 return None
 
+    async def list_klines(self) -> List:
+        async with aiosqlite.connect(self._location) as db:
+            cursor = await db.execute("""
+                SELECT id,mask FROM klines
+                WHERE remove_at IS NULL
+                ORDER BY id DESC
+            """)
+            results = await cursor.fetchall()
+            if results is not None:
+                return results
+            else:
+                return None
+
     async def del_kline(self,
             id:      int,
             remover: Optional[str]):

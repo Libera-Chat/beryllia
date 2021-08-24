@@ -21,6 +21,8 @@ from .database import Database
 RPL_RSACHALLENGE2      = "740"
 RPL_ENDOFRSACHALLENGE2 = "741"
 RPL_YOUREOPER          = "381"
+RPL_STATSKLINE         = "216"
+RPL_ENDOFSTATS         = "219"
 
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nickname>\S+) \((?P<userhost>\S+)\) .* \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<setter>[^{]+)\{\S+ added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
@@ -109,6 +111,43 @@ class Server(BaseServer):
         })
         return whois_line.command == RPL_WHOISOPERATOR
 
+    async def _find_unset(self):
+        # check stats k (locally set kline) and g (kline set on another server)
+        # to see if anything was unset while we were gone
+        klines        = await self.database.list_klines()
+        active_klines = list()
+        await self.send(build("STATS", ["k"]))
+
+        stats_kline = Response(RPL_STATSKLINE, [SELF, ANY])
+        stats_end   = Response(RPL_ENDOFSTATS, [SELF, ANY])
+        #:lithium.libera.chat 216 sandcat sandcat :k 1.2.3.4 * * :piss off m8 (2021/8/23 20.24)|(launchd!launchd@localhost{launchd})
+        #:lithium.libera.chat 219 sandcat sandcat :k :End of /STATS report
+
+        while True:
+            stats_line = await self.wait_for({
+                stats_kline, stats_end
+            })
+            if stats_line.command == RPL_STATSKLINE:
+                active_klines.append(f"{stats_line.params[4]}@{stats_line.params[2]}")
+            else:
+                break
+
+        # do the same thing but this time with /stats g
+        await self.send(build("STATS", ["g"]))
+        while True:
+            stats_line = await self.wait_for({
+                stats_kline, stats_end
+            })
+            if stats_line.command == RPL_STATSKLINE:
+                active_klines.append(f"{stats_line.params[4]}@{stats_line.params[2]}")
+            else:
+                break
+
+        for id, mask in klines:
+            if not mask in active_klines:
+                await self.database.del_kline(id, None)
+
+
     async def line_read(self, line: Line):
         now = time.monotonic()
 
@@ -123,6 +162,7 @@ class Server(BaseServer):
             # k server kills
             # s oper kills, klines
             await self.send(build("MODE", [self.nickname, "-s+s", "+Fcks"]))
+            await self._find_unset()
 
         elif (line.command == "NOTICE" and
                 line.params[0] == "*" and
