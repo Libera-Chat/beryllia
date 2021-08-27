@@ -12,6 +12,7 @@ from ircrobots import ConnectionParams
 
 from ircstates.numerics import *
 from ircchallenge       import Challenge
+from ircrobots.ircv3    import Capability
 from ircrobots.matching import ANY, Folded, Response, SELF
 
 from .config   import Config
@@ -32,6 +33,7 @@ SECONDS_HOURS   = SECONDS_MINUTES*60
 SECONDS_DAYS    = SECONDS_HOURS*24
 SECONDS_WEEKS   = SECONDS_DAYS*7
 
+CAP_OPER = Capability(None, "solanum.chat/oper")
 
 def _pretty_time(total_seconds: int):
     weeks, days      = divmod(total_seconds, SECONDS_WEEKS)
@@ -59,6 +61,8 @@ class Server(BaseServer):
             config: Config):
 
         super().__init__(bot, name)
+        self.desired_caps.add(CAP_OPER)
+
         self._config  = config
         self.database = Database(config.database)
 
@@ -95,19 +99,6 @@ class Server(BaseServer):
                     retort = challenge.finalise()
                     await self.send(build("CHALLENGE", [f"+{retort}"]))
                     break
-
-    async def _is_oper(self, nickname: str):
-        await self.send(build("WHOIS", [nickname]))
-
-        whois_oper = Response(RPL_WHOISOPERATOR, [SELF, Folded(nickname)])
-        whois_end  = Response(RPL_ENDOFWHOIS,    [SELF, Folded(nickname)])
-        #:lithium.libera.chat 313 sandcat sandcat :is an IRC Operator
-        #:lithium.libera.chat 318 sandcat sandcat :End of /WHOIS list.
-
-        whois_line = await self.wait_for({
-            whois_end, whois_oper
-        })
-        return whois_line.command == RPL_WHOISOPERATOR
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -192,7 +183,7 @@ class Server(BaseServer):
             first, _, rest = line.params[1].partition(" ")
             if self.is_me(line.params[0]):
                 # private message
-                await self.cmd(who, who, first.lower(), rest)
+                await self.cmd(who, who, first.lower(), rest, line.tags)
             elif rest:
                 if first in [me, f"{me}:", f"{me},"]:
                     # highlight in channel
@@ -203,9 +194,11 @@ class Server(BaseServer):
             who:     str,
             target:  str,
             command: str,
-            args:    str):
+            args:    str,
+            tags:    Optional[Dict[str, str]]
+            ):
 
-        if await self._is_oper(who):
+        if tags and "solanum.chat/oper" in tags:
             attrib  = f"cmd_{command}"
             if hasattr(self, attrib):
                 outs = await getattr(self, attrib)(who, args)
