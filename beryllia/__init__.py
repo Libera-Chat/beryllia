@@ -188,7 +188,9 @@ class Server(BaseServer):
                 if first in [me, f"{me}:", f"{me},"]:
                     # highlight in channel
                     command, _, args = rest.partition(" ")
-                    await self.cmd(who, line.params[0], command.lower(), args)
+                    await self.cmd(
+                        who, line.params[0], command.lower(), args, line.tags
+                    )
 
     async def cmd(self,
             who:     str,
