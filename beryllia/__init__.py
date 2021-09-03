@@ -239,6 +239,11 @@ class Server(BaseServer):
                 kills = await self.database.find_kills_by_host(arg)
             elif type == "ip":
                 kills = await self.database.find_kills_by_ip(arg)
+            else:
+                return [
+                    f"{type} is not a valid type."
+                    " valid types are: nick, host, and ip"
+                ]
 
             out: List[str] = []
             for nick, user, host, ts, kline_id in kills[:3]:
