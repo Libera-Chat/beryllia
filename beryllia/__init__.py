@@ -223,17 +223,19 @@ class Server(BaseServer):
         else:
             return ["unknown command"]
 
-    async def cmd_kcheck(self, nick: str, args: str):
-        type, _, arg = args.partition(" ")
-        if arg:
-            now  = int(time.time())
+    async def cmd_kcheck(self, nick: str, sargs: str):
+        args = sargs.split(None, 2)
+        if len(args) > 1:
+            type, query, *_ = args
             type = type.lower()
+            now  = int(time.time())
+
             if   type == "nick":
-                kills = await self.database.find_kills_by_nick(arg)
+                kills = await self.database.find_kills_by_nick(query)
             elif type == "host":
-                kills = await self.database.find_kills_by_host(arg)
+                kills = await self.database.find_kills_by_host(query)
             elif type == "ip":
-                kills = await self.database.find_kills_by_ip(arg)
+                kills = await self.database.find_kills_by_ip(query)
 
             out: List[str] = []
             for nick, user, host, ts, kline_id in kills[:3]:
@@ -259,7 +261,7 @@ class Server(BaseServer):
             return out or ["no results"]
 
         else:
-            return ["please provide a type and arg"]
+            return ["please provide a type and query"]
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")
