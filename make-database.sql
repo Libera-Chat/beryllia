@@ -22,4 +22,11 @@ CREATE TABLE kills (
     kline_id    INTEGER,
     FOREIGN KEY(kline_id) REFERENCES klines(id)
 );
+
+CREATE INDEX kills_nickname    ON kills(nickname);
+CREATE INDEX kills_ts          ON kills(ts);
+CREATE INDEX kills_search_nick ON kills(search_nick);
+CREATE INDEX kills_search_user ON kills(search_user);
+CREATE INDEX kills_search_host ON kills(search_host);
+
 COMMIT;
