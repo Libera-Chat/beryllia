@@ -35,24 +35,19 @@ SECONDS_WEEKS   = SECONDS_DAYS*7
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 
-def _pretty_time(total_seconds: int):
-    weeks, days      = divmod(total_seconds, SECONDS_WEEKS)
-    days, hours      = divmod(days,          SECONDS_DAYS)
-    hours, minutes   = divmod(hours,         SECONDS_HOURS)
-    minutes, seconds = divmod(minutes,       SECONDS_MINUTES)
+def _pretty_time(total: int, max_units: int=2):
+    counts: List[int] = []
+    counts[0:2] = divmod(total,      SECONDS_WEEKS)
+    counts[1:3] = divmod(counts[-1], SECONDS_DAYS)
+    counts[2:4] = divmod(counts[-1], SECONDS_HOURS)
+    counts[3:5] = divmod(counts[-1], SECONDS_MINUTES)
 
-    out = ""
-    if not weeks == 0:
-        out += f"{weeks}w"
-    if not days == 0:
-        out += f"{days}d"
-    if not hours == 0:
-        out += f"{hours}h"
-    if not minutes == 0:
-        out += f"{minutes}m"
-    if not seconds == 0:
-        out += f"{seconds}s"
-    return out
+    outs: List[str] = []
+    for unit, i in zip("wdhms", counts):
+        if i > 0 and len(outs) < max_units:
+            outs.append(f"{i}{unit}")
+
+    return "".join(outs)
 
 class Server(BaseServer):
     def __init__(self,
