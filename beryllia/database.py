@@ -112,7 +112,7 @@ class Database(object):
                     kline_id,
                     ts
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 nickname, search_nick,
                 username, search_user,
