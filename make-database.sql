@@ -1,14 +1,21 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 CREATE TABLE klines (
-    id        INTEGER PRIMARY KEY,
-    mask      TEXT NOT NULL,
-    setter    TEXT NOT NULL,
-    duration  INTEGER NOT NULL,
-    reason    TEXT NOT NULL,
-    ts        INTEGER NOT NULL,
-    remove_by TEXT,
-    remove_at INT
+    id       INTEGER PRIMARY KEY,
+    mask     TEXT NOT NULL,
+    source   TEXT NOT NULL,
+    oper     TEXT NOT NULL,
+    duration INTEGER NOT NULL,
+    reason   TEXT NOT NULL,
+    ts       INTEGER NOT NULL
+);
+CREATE TABLE kline_removes (
+    id     INTEGER NOT NULL,
+    source TEXT,
+    oper   TEXT,
+    ts     INTEGER NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (id) REFERENCES klines(id)
 );
 CREATE TABLE kills (
     nickname    TEXT NOT NULL,

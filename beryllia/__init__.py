@@ -24,8 +24,8 @@ RPL_ENDOFRSACHALLENGE2 = "741"
 RPL_YOUREOPER          = "381"
 
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nickname>\S+) \((?P<userhost>\S+)\) .* \[(?P<ip>\S+)\]$")
-RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<setter>[^{]+)\{\S+ added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
-RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<remover>[^{]+)\{\S+ has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
+RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
+RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- KLINE active for (?P<nickname>[^[]+)\[\S+ .(?P<mask>\S+).$")
 
 SECONDS_MINUTES = 60
@@ -35,7 +35,7 @@ SECONDS_WEEKS   = SECONDS_DAYS*7
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 
-def _pretty_time(total: int, max_units: int=2):
+def _pretty_time(total: int, max_units: int=2) -> str:
     counts: List[int] = []
     counts[0:2] = divmod(total,      SECONDS_WEEKS)
     counts[1:3] = divmod(counts[-1], SECONDS_DAYS)
@@ -48,6 +48,9 @@ def _pretty_time(total: int, max_units: int=2):
             outs.append(f"{i}{unit}")
 
     return "".join(outs)
+
+def _nick(source: str) -> str:
+    return source.split("!", 1)[0]
 
 class Server(BaseServer):
     def __init__(self,
@@ -145,25 +148,29 @@ class Server(BaseServer):
                         )
 
             if p_klineadd is not None:
-                setter   = p_klineadd.group("setter")
+                source   = p_klineadd.group("source")
+                oper     = p_klineadd.group("oper")
                 mask     = p_klineadd.group("mask")
                 duration = p_klineadd.group("duration")
                 reason   = p_klineadd.group("reason")
 
                 username, hostname  = mask.split("@")
 
-                id = await self.database.add_kline(setter, mask, duration, reason)
+                id = await self.database.add_kline(
+                    source, oper, mask, duration, reason
+                )
                 self._recent_klines[mask] = id
                 self._recent_klines.move_to_end(mask, last=False)
                 if len(self._recent_klines) > 64:
                     self._recent_klines.popitem(last=True)
 
             elif p_klinedel is not None:
-                remover = p_klinedel.group("remover")
-                mask    = p_klinedel.group("mask")
-                id      = await self.database.find_kline(mask)
+                source = p_klinedel.group("source")
+                oper   = p_klinedel.group("oper")
+                mask   = p_klinedel.group("mask")
+                id     = await self.database.find_kline(mask)
                 if id is not None:
-                    await self.database.del_kline(id, remover)
+                    await self.database.del_kline(id, source, oper)
 
             elif p_klineexit is not None:
                 nickname = p_klineexit.group("nickname")
@@ -246,18 +253,23 @@ class Server(BaseServer):
                 out.append(f"{nick}!{user}@{host} kill at {ts_iso}")
 
                 if kline_id is not None:
-                    kline = await self.database.get_kline(kline_id)
+                    kline  = await self.database.get_kline(kline_id)
+                    remove = await self.database.get_remove(kline_id)
 
                     kts_human   = _pretty_time(now-kline.ts)
-                    setter_nick = kline.setter.split("!", 1)[0]
-                    kline_s     = (f"K-Line: {kline.mask} {kts_human} ago"
-                        f" by {setter_nick} for {kline.duration} mins")
+                    kline_s     = (
+                        f"K-Line: {kline.mask} \x02{kts_human} ago\x02"
+                        f" by \x02{kline.oper}\x02 for {kline.duration} mins"
+                    )
 
-                    if kline.remove_at is not None:
-                        remover  = kline.remove_by or "unknown"
-                        kline_s += f" (removed by {remover})"
+                    if remove is not None:
+                        remover = remove.oper or "unknown"
+                        kline_s += \
+                            f" (\x0303removed\x03 by \x02{remover}\x02)"
                     elif (kline.ts+(kline.duration*60)) < now:
-                        kline_s += " (expired)"
+                        kline_s += " (\x0303expired\x03)"
+                    else:
+                        kline_s += " (\x0304active\x03)"
 
                     kline_s += f": {kline.reason}"
                     out.append(f"  {kline_s}")
