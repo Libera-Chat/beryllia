@@ -140,9 +140,12 @@ class Server(BaseServer):
                         kline_id = self._recent_klines[mask]
                         await self.database.add_kill(
                             nickname,
+                            self.casefold(nickname),
                             username,
+                            self.casefold(username),
                             hostname,
-                            ip,
+                            hostname.lower(),
+                            ip_address(ip).compressed,
                             kline_id
                         )
 
@@ -231,11 +234,16 @@ class Server(BaseServer):
             now  = int(time.time())
 
             if   type == "nick":
-                kills = await self.database.find_kills_by_nick(query)
+                fold  = self.casefold(query)
+                kills = await self.database.find_kills_by_nick(fold)
             elif type == "host":
-                kills = await self.database.find_kills_by_host(query)
+                kills = await self.database.find_kills_by_host(query.lower())
             elif type == "ip":
-                kills = await self.database.find_kills_by_ip(query)
+                try:
+                    comp = ip_address(query).compressed
+                except ValueError:
+                    return [f"'{query}' isn't a valid IP"]
+                kills = await self.database.find_kills_by_ip(comp)
 
             out: List[str] = []
             for nick, user, host, ts, kline_id in kills[:3]:

@@ -93,17 +93,34 @@ class Database(object):
         return await self.find_kline(mask) or -1 # -1 to fix typehint
 
     async def add_kill(self,
-            nickname: str,
-            username: str,
-            hostname: str,
-            ip:       str,
-            kline_id: Optional[int]):
+            nickname:    str,
+            search_nick: str,
+            username:    str,
+            search_user: str,
+            hostname:    str,
+            search_host: str,
+            ip:          str,
+            kline_id:    Optional[int]):
 
         async with aiosqlite.connect(self._location) as db:
             await db.execute("""
-                INSERT INTO kills (nickname, username, hostname, ip, kline_id, ts)
+                INSERT INTO kills (
+                    nickname, search_nick,
+                    username, search_user,
+                    hostname, search_host,
+                    ip,
+                    kline_id,
+                    ts
+                )
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, [nickname, username, hostname, ip, kline_id, int(time.time())])
+            """, [
+                nickname, search_nick,
+                username, search_user,
+                hostname, search_host,
+                ip,
+                kline_id,
+                int(time.time())
+            ])
             await db.commit()
 
     async def find_kills_by_nick(self,
@@ -114,7 +131,7 @@ class Database(object):
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
                 FROM kills
-                WHERE nickname=?
+                WHERE search_nick=?
                 ORDER BY ts DESC
             """, [nickname])
             return await cursor.fetchall()
@@ -127,7 +144,7 @@ class Database(object):
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
                 FROM kills
-                WHERE hostname=?
+                WHERE search_host=?
                 ORDER BY ts DESC
             """, [hostname])
             return await cursor.fetchall()

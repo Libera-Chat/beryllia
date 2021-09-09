@@ -11,12 +11,15 @@ CREATE TABLE klines (
     remove_at INT
 );
 CREATE TABLE kills (
-    nickname TEXT NOT NULL,
-    username TEXT NOT NULL,
-    hostname TEXT NOT NULL,
-    ip       TEXT NOT NULL,
-    ts       INTEGER NOT NULL,
-    kline_id INTEGER,
+    nickname    TEXT NOT NULL,
+    search_nick TEXT NOT NULL,
+    username    TEXT NOT NULL,
+    search_user TEXT NOT NULL,
+    hostname    TEXT NOT NULL,
+    search_host TEXT NOT NULL,
+    ip          TEXT NOT NULL,
+    ts          INTEGER NOT NULL,
+    kline_id    INTEGER,
     FOREIGN KEY(kline_id) REFERENCES klines(id)
 );
 COMMIT;
