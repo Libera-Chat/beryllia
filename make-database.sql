@@ -33,5 +33,6 @@ CREATE TABLE kills (
 CREATE INDEX kills_search_nick ON kills(search_nick);
 CREATE INDEX kills_search_user ON kills(search_user);
 CREATE INDEX kills_search_host ON kills(search_host);
+CREATE INDEX kills_ip          ON kills(ip);
 
 COMMIT;
