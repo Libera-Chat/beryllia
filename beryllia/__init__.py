@@ -145,7 +145,7 @@ class Server(BaseServer):
                             self.casefold(username),
                             hostname,
                             hostname.lower(),
-                            ip_address(ip).compressed,
+                            ipaddress.ip_address(ip).compressed,
                             kline_id
                         )
 
@@ -240,7 +240,7 @@ class Server(BaseServer):
                 kills = await self.database.find_kills_by_host(query.lower())
             elif type == "ip":
                 try:
-                    comp = ip_address(query).compressed
+                    comp = ipaddress.ip_address(query).compressed
                 except ValueError:
                     return [f"'{query}' isn't a valid IP"]
                 kills = await self.database.find_kills_by_ip(comp)
