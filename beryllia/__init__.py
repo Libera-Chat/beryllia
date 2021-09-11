@@ -294,14 +294,15 @@ class Server(BaseServer):
                     kts_human   = _pretty_time(now-kline.ts)
                     kline_s     = (
                         f"K-Line: {kline.mask} \x02{kts_human} ago\x02"
-                        f" by \x02{kline.oper}\x02 for {kline.duration} mins"
+                        f" by \x02{kline.oper}\x02"
+                        f" for {kline.duration//60} mins"
                     )
 
                     if remove is not None:
                         remover = remove.oper or "unknown"
                         kline_s += \
                             f" (\x0303removed\x03 by \x02{remover}\x02)"
-                    elif (kline.ts+(kline.duration*60)) < now:
+                    elif kline.expire < now:
                         kline_s += " (\x0303expired\x03)"
                     else:
                         kline_s += " (\x0304active\x03)"

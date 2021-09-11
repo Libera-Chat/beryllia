@@ -37,6 +37,7 @@ class DBKLine(object):
     duration: int
     reason:   str
     ts:       int
+    expire:   int
 
 @dataclass
 class DBKlineRemove(object):
@@ -52,7 +53,7 @@ class KlinesTable(Table):
     async def get(self, id: int) -> Optional[DBKLine]:
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
-                SELECT mask, source, oper, duration, reason, ts
+                SELECT mask, source, oper, duration, reason, ts, expire
                 FROM klines
                 WHERE id=?
             """, [id])
