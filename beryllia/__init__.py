@@ -27,6 +27,7 @@ RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nickname>\S+) \
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- KLINE active for (?P<nickname>[^[]+)\[\S+ .(?P<mask>\S+).$")
+RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nickname>[^[]+)\[(?P<username>[^@]+)@(?P<hostname>\S+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
 
 SECONDS_MINUTES = 60
 SECONDS_HOURS   = SECONDS_MINUTES*60
@@ -120,10 +121,12 @@ class Server(BaseServer):
 
             # snote!
 
-            p_cliexit   = RE_CLIEXIT.search(line.params[1])
-            p_klineadd  = RE_KLINEADD.search(line.params[1])
-            p_klinedel  = RE_KLINEDEL.search(line.params[1])
-            p_klineexit = RE_KLINEEXIT.search(line.params[1])
+            message     = line.params[1]
+            p_cliexit   = RE_CLIEXIT.search(message)
+            p_klineadd  = RE_KLINEADD.search(message)
+            p_klinedel  = RE_KLINEDEL.search(message)
+            p_klineexit = RE_KLINEEXIT.search(message)
+            p_klinerej  = RE_KLINEREJ.search(message)
 
             if p_cliexit is not None:
                 nickname = p_cliexit.group("nickname")
@@ -178,6 +181,37 @@ class Server(BaseServer):
                 # we wait until cliexit because that snote has an IP in it
                 self._wait_for_exit[nickname] = mask
 
+            elif p_klinerej is not None:
+                nickname = p_klinerej.group("nickname")
+                username = p_klinerej.group("username")
+                hostname = p_klinerej.group("hostname")
+                ip       = p_klinerej.group("ip")
+                mask     = p_klinerej.group("mask")
+
+                search_nick = self.casefold(nickname)
+                search_user = self.casefold(username)
+                search_host = hostname.lower()
+                ip_comp     = ipaddress.ip_address(ip).compressed
+
+                kline_id = await self.database.klines.find(mask)
+                if kline_id is not None:
+                    if not await self.database.kline_rejects.has(
+                            search_nick,
+                            search_user,
+                            search_host,
+                            ip_comp,
+                            kline_id):
+
+                        await self.database.kline_rejects.add(
+                            nickname,
+                            search_nick,
+                            username,
+                            search_user,
+                            hostname,
+                            search_host,
+                            ip_comp,
+                            kline_id
+                        )
 
         elif (line.command == "PRIVMSG" and
                 not self.is_me(line.hostmask.nickname)):
