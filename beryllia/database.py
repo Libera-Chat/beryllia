@@ -13,6 +13,7 @@ import aiosqlite
 #   duration:  int, not null
 #   reason:    str, not null
 #   ts:        int, not null
+#   expire:    int, not null
 # kline_removes:
 #   id:     int, foreign key klines.id
 #   source: str, nullable
@@ -43,11 +44,12 @@ class DBKlineRemove(object):
     oper:   str
     ts:     int
 
-class Database(object):
+class Table(object):
     def __init__(self, location: str):
         self._location = location
 
-    async def get_kline(self, id: int) -> Optional[DBKLine]:
+class KlinesTable(Table):
+    async def get(self, id: int) -> Optional[DBKLine]:
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT mask, source, oper, duration, reason, ts
@@ -60,7 +62,7 @@ class Database(object):
             else:
                 return None
 
-    async def find_kline(self, mask: str) -> Optional[int]:
+    async def find(self, mask: str) -> Optional[int]:
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT klines.id FROM klines
@@ -70,16 +72,52 @@ class Database(object):
 
                 WHERE mask=? AND
                 kline_removes.ts IS NULL
+                AND klines.expire > ?
 
                 ORDER BY klines.id DESC
-            """, [mask])
+            """, [mask, int(time.time())])
             row = await cursor.fetchone()
             if row is not None:
                 return row[0]
             else:
                 return None
 
-    async def get_remove(self, id: int) -> Optional[DBKlineRemove]:
+    async def add(self,
+            source:   str,
+            oper:     str,
+            mask:     str,
+            duration: int,
+            reason:   str) -> int:
+
+        async with aiosqlite.connect(self._location) as db:
+            ts_now = int(time.time())
+            await db.execute("""
+                INSERT INTO klines (
+                    mask, source, oper, duration, reason, ts, expire
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, [
+                mask, source, oper, duration, reason, ts_now, ts_now+duration
+            ])
+            await db.commit()
+
+        return await self.find(mask) or -1 # -1 to fix typehint
+
+
+class KlineRemovesTable(Table):
+    async def add(self,
+            id:     int,
+            source: Optional[str],
+            oper:   Optional[str]):
+
+        async with aiosqlite.connect(self._location) as db:
+            await db.execute("""
+                INSERT INTO kline_removes (id, source, oper, ts)
+                VALUES (?, ?, ?, ?)
+            """, [id, source, oper, int(time.time())])
+            await db.commit()
+
+    async def get(self, id: int) -> Optional[DBKlineRemove]:
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT source, oper, ts
@@ -92,35 +130,8 @@ class Database(object):
             else:
                 return None
 
-    async def del_kline(self,
-            id:     int,
-            source: Optional[str],
-            oper:   Optional[str]):
-
-        async with aiosqlite.connect(self._location) as db:
-            await db.execute("""
-                INSERT INTO kline_removes (id, source, oper, ts)
-                VALUES (?, ?, ?, ?)
-            """, [id, source, oper, int(time.time())])
-            await db.commit()
-
-    async def add_kline(self,
-            source:   str,
-            oper:     str,
-            mask:     str,
-            duration: int,
-            reason:   str) -> int:
-
-        async with aiosqlite.connect(self._location) as db:
-            await db.execute("""
-                INSERT INTO klines (mask, source, oper, duration, reason, ts)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, [mask, source, oper, duration, reason, int(time.time())])
-            await db.commit()
-
-        return await self.find_kline(mask) or -1 # -1 to fix typehint
-
-    async def add_kill(self,
+class KlineKillsTable(Table):
+    async def add(self,
             nickname:    str,
             search_nick: str,
             username:    str,
@@ -132,60 +143,169 @@ class Database(object):
 
         async with aiosqlite.connect(self._location) as db:
             await db.execute("""
-                INSERT INTO kills (
-                    nickname, search_nick,
-                    username, search_user,
-                    hostname, search_host,
+                INSERT INTO kline_kills (
+                    nickname,
+                    search_nick,
+                    username,
+                    search_user,
+                    hostname,
+                    search_host,
                     ip,
                     kline_id,
                     ts
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
-                nickname, search_nick,
-                username, search_user,
-                hostname, search_host,
+                nickname,
+                search_nick,
+                username,
+                search_user,
+                hostname,
+                search_host,
                 ip,
                 kline_id,
                 int(time.time())
             ])
             await db.commit()
 
-    async def find_kills_by_nick(self,
+    async def find_by_nick(self,
             nickname: str
             ) -> List[Tuple[str, str, str, int, Optional[int]]]:
 
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
-                FROM kills
+                FROM kline_kills
                 WHERE search_nick=?
                 ORDER BY ts DESC
             """, [nickname])
             return await cursor.fetchall()
 
-    async def find_kills_by_host(self,
+    async def find_by_host(self,
             hostname: str
             ) -> List[Tuple[str, str, str, int, Optional[int]]]:
 
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
-                FROM kills
+                FROM kline_kills
                 WHERE search_host=?
                 ORDER BY ts DESC
             """, [hostname])
             return await cursor.fetchall()
 
-    async def find_kills_by_ip(self,
+    async def find_by_ip(self,
             ip: str
+            ) -> List[Tuple[str, str, str, int, Optional[int]]]:
+
+            cursor = await db.execute("""
+                SELECT nickname, username, hostname, ts, kline_id
+                FROM kline_kills
+                WHERE ip=?
+                ORDER BY ts DESC
+            """, [ip])
+            return await cursor.fetchall()
+
+class KlineRejectsTable(Table):
+    async def has(self,
+            search_nick: str,
+            search_user: str,
+            search_host: str,
+            ip:          str,
+            kline_id:    int
+            ) -> bool:
+
+        async with aiosqlite.connect(self._location) as db:
+            cursor = await db.execute("""
+                SELECT 1
+                FROM kline_rejects
+                WHERE
+                    search_nick=? AND
+                    search_user=? AND
+                    search_host=? AND
+                    ip=? AND
+                    kline_id=?
+            """, [search_nick, search_user, search_host, ip, kline_id])
+            return bool(await cursor.fetchall())
+
+    async def add(self,
+            nickname:    str,
+            search_nick: str,
+            username:    str,
+            search_user: str,
+            hostname:    str,
+            search_host: str,
+            ip:          str,
+            kline_id:    int):
+
+        async with aiosqlite.connect(self._location) as db:
+            await db.execute("""
+                INSERT INTO kline_rejects (
+                    nickname,
+                    search_nick,
+                    username,
+                    search_user,
+                    hostname,
+                    search_host,
+                    ip,
+                    kline_id,
+                    ts
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                nickname,
+                search_nick,
+                username,
+                search_user,
+                hostname,
+                search_host,
+                ip,
+                kline_id,
+                int(time.time())
+            ])
+            await db.commit()
+
+    async def find_by_nick(self,
+            nickname: str
             ) -> List[Tuple[str, str, str, int, Optional[int]]]:
 
         async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
-                FROM kills
+                FROM kline_rejects
+                WHERE search_nick=?
+                ORDER BY ts DESC
+            """, [nickname])
+            return await cursor.fetchall()
+
+    async def find_by_host(self,
+            hostname: str
+            ) -> List[Tuple[str, str, str, int, Optional[int]]]:
+
+        async with aiosqlite.connect(self._location) as db:
+            cursor = await db.execute("""
+                SELECT nickname, username, hostname, ts, kline_id
+                FROM kline_rejects
+                WHERE search_host=?
+                ORDER BY ts DESC
+            """, [hostname])
+            return await cursor.fetchall()
+
+    async def find_by_ip(self,
+            ip: str
+            ) -> List[Tuple[str, str, str, int, Optional[int]]]:
+
+            cursor = await db.execute("""
+                SELECT nickname, username, hostname, ts, kline_id
+                FROM kline_rejects
                 WHERE ip=?
                 ORDER BY ts DESC
             """, [ip])
             return await cursor.fetchall()
+
+class Database(object):
+    def __init__(self, location: str):
+        self.klines        = KlinesTable(location)
+        self.kline_removes = KlineRemovesTable(location)
+        self.kline_kills   = KlineKillsTable(location)
+        self.kline_rejects = KlineRejectsTable(location)

@@ -136,7 +136,7 @@ class Server(BaseServer):
 
                     if mask in self._recent_klines:
                         kline_id = self._recent_klines[mask]
-                        await self.database.add_kill(
+                        await self.database.kline_kills.add(
                             nickname,
                             self.casefold(nickname),
                             username,
@@ -156,8 +156,8 @@ class Server(BaseServer):
 
                 username, hostname  = mask.split("@")
 
-                id = await self.database.add_kline(
-                    source, oper, mask, duration, reason
+                id = await self.database.klines.add(
+                    source, oper, mask, int(duration)*60, reason
                 )
                 self._recent_klines[mask] = id
                 self._recent_klines.move_to_end(mask, last=False)
@@ -168,9 +168,9 @@ class Server(BaseServer):
                 source = p_klinedel.group("source")
                 oper   = p_klinedel.group("oper")
                 mask   = p_klinedel.group("mask")
-                id     = await self.database.find_kline(mask)
+                id     = await self.database.klines.find(mask)
                 if id is not None:
-                    await self.database.del_kline(id, source, oper)
+                    await self.database.kline_removes.add(id, source, oper)
 
             elif p_klineexit is not None:
                 nickname = p_klineexit.group("nickname")
@@ -237,15 +237,16 @@ class Server(BaseServer):
 
             if   type == "nick":
                 fold  = self.casefold(query)
-                kills = await self.database.find_kills_by_nick(fold)
+                kills = await self.database.kline_kills.find_by_nick(fold)
             elif type == "host":
-                kills = await self.database.find_kills_by_host(query.lower())
+                host  = query.lower()
+                kills = await self.database.kline_kills.find_by_host(host)
             elif type == "ip":
                 try:
                     comp = ipaddress.ip_address(query).compressed
                 except ValueError:
                     return [f"'{query}' isn't a valid IP"]
-                kills = await self.database.find_kills_by_ip(comp)
+                kills = await self.database.kline_kills.find_by_ip(comp)
 
             out: List[str] = []
             for nick, user, host, ts, kline_id in kills[:3]:
@@ -253,8 +254,8 @@ class Server(BaseServer):
                 out.append(f"{nick}!{user}@{host} kill at {ts_iso}")
 
                 if kline_id is not None:
-                    kline  = await self.database.get_kline(kline_id)
-                    remove = await self.database.get_remove(kline_id)
+                    kline  = await self.database.klines.get(kline_id)
+                    remove = await self.database.kline_removes.get(kline_id)
 
                     kts_human   = _pretty_time(now-kline.ts)
                     kline_s     = (
