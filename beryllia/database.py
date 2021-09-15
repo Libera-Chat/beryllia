@@ -139,7 +139,7 @@ class KlineKillsTable(Table):
             search_user: str,
             hostname:    str,
             search_host: str,
-            ip:          str,
+            ip:          Optional[str],
             kline_id:    Optional[int]):
 
         async with aiosqlite.connect(self._location) as db:
@@ -213,7 +213,7 @@ class KlineRejectsTable(Table):
             search_nick: str,
             search_user: str,
             search_host: str,
-            ip:          str,
+            ip:          Optional[str],
             kline_id:    int
             ) -> bool:
 
@@ -237,7 +237,7 @@ class KlineRejectsTable(Table):
             search_user: str,
             hostname:    str,
             search_host: str,
-            ip:          str,
+            ip:          Optional[str],
             kline_id:    int):
 
         async with aiosqlite.connect(self._location) as db:

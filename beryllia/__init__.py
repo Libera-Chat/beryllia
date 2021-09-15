@@ -132,7 +132,12 @@ class Server(BaseServer):
                 nickname = p_cliexit.group("nickname")
                 userhost = p_cliexit.group("userhost")
                 username, hostname = userhost.split("@")
-                ip       = p_cliexit.group("ip")
+
+                ip: Optional[str] = p_cliexit.group("ip")
+                if ip == "0":
+                    ip = None
+                else:
+                    ip = ipaddress.ip_address(ip).compressed
 
                 if nickname in self._wait_for_exit:
                     mask = self._wait_for_exit.pop(nickname)
@@ -146,7 +151,7 @@ class Server(BaseServer):
                             self.casefold(username),
                             hostname,
                             hostname.lower(),
-                            ipaddress.ip_address(ip).compressed,
+                            ip,
                             kline_id
                         )
 
@@ -185,13 +190,17 @@ class Server(BaseServer):
                 nickname = p_klinerej.group("nickname")
                 username = p_klinerej.group("username")
                 hostname = p_klinerej.group("hostname")
-                ip       = p_klinerej.group("ip")
                 mask     = p_klinerej.group("mask")
+
+                ip: Optional[str] = p_klinerej.group("ip")
+                if ip == "0":
+                    ip = None
+                else:
+                    ip = ipaddress.ip_address(ip).compressed
 
                 search_nick = self.casefold(nickname)
                 search_user = self.casefold(username)
                 search_host = hostname.lower()
-                ip_comp     = ipaddress.ip_address(ip).compressed
 
                 kline_id = await self.database.klines.find(mask)
                 if kline_id is not None:
@@ -199,7 +208,7 @@ class Server(BaseServer):
                             search_nick,
                             search_user,
                             search_host,
-                            ip_comp,
+                            ip,
                             kline_id):
 
                         await self.database.kline_rejects.add(

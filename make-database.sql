@@ -25,7 +25,7 @@ CREATE TABLE kline_rejects (
     search_user TEXT NOT NULL,
     hostname    TEXT NOT NULL,
     search_host TEXT NOT NULL,
-    ip          TEXT NOT NULL
+    ip          TEXT,
     kline_id    INTEGER NOT NULL,
     PRIMARY KEY (search_nick, search_user, search_host, ip, kline_id),
     FOREIGN KEY (kline_id) REFERENCES klines(id)
@@ -37,7 +37,7 @@ CREATE TABLE kline_kills (
     search_user TEXT NOT NULL,
     hostname    TEXT NOT NULL,
     search_host TEXT NOT NULL,
-    ip          TEXT NOT NULL,
+    ip          TEXT,
     ts          INTEGER NOT NULL,
     kline_id    INTEGER,
     FOREIGN KEY(kline_id) REFERENCES klines(id)
