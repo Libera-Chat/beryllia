@@ -31,6 +31,7 @@ CREATE TABLE kline_rejects (
     FOREIGN KEY (kline_id) REFERENCES klines(id)
 );
 CREATE TABLE kline_kills (
+    id          INTEGER PRIMARY KEY,
     nickname    TEXT NOT NULL,
     search_nick TEXT NOT NULL,
     username    TEXT NOT NULL,
