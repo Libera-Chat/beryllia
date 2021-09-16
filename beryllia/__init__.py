@@ -164,9 +164,19 @@ class Server(BaseServer):
 
                 username, hostname  = mask.split("@")
 
-                id = await self.database.klines.add(
+                old_id = await self.database.klines.find(mask)
+                id     = await self.database.klines.add(
                     source, oper, mask, int(duration)*60, reason
                 )
+
+                # if an existing k-line is being extended/updated, update
+                # kills affected by the first k-line
+                if old_id is not None:
+                    db    = self.database
+                    kills = await db.kline_kills.find_by_kline(old_id)
+                    for kill_id in kills:
+                        await db.kline_kills.set_kline(kill_id, id)
+
                 self._recent_klines[mask] = id
                 self._recent_klines.move_to_end(mask, last=False)
                 if len(self._recent_klines) > 64:

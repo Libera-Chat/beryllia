@@ -208,6 +208,28 @@ class KlineKillsTable(Table):
             """, [ip])
             return await cursor.fetchall()
 
+    async def find_by_kline(self, kline_id: int) -> List[int]:
+        async with aiosqlite.connect(self._location) as db:
+            cursor = await db.execute("""
+                SELECT id
+                FROM kline_kills
+                WHERE kline_id=?
+            """, [kline_id])
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
+
+    async def set_kline(self,
+            kill_id:  int,
+            kline_id: int):
+
+        async with aiosqlite.connect(self._location) as db:
+            await db.execute("""
+                UPDATE kline_kills
+                SET kline_id=?
+                WHERE id=?
+            """, [kline_id, kill_id])
+            await db.commit()
+
 class KlineRejectsTable(Table):
     async def has(self,
             search_nick: str,
