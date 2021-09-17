@@ -3,29 +3,6 @@ from dataclasses import dataclass
 from typing      import List, Optional, Tuple
 import aiosqlite
 
-# schema, also in make-database.sql
-#
-# klines:
-#   id:        int, incremental
-#   mask:      str, not null
-#   source:    str, not null
-#   oper:      str, not null
-#   duration:  int, not null
-#   reason:    str, not null
-#   ts:        int, not null
-#   expire:    int, not null
-# kline_removes:
-#   id:     int, foreign key klines.id
-#   source: str, nullable
-#   oper:   str, nullable
-#   ts:     int, not null
-# kills:
-#   nickname: str, not null
-#   username: str, not null
-#   hostname: str, not null
-#   ip:       str, not null
-#   ts:       int, not null
-#   kline_id: int, foreign key klines.id, nullable
 
 #TODO: don't open the database for every operation
 
