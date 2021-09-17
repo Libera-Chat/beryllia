@@ -296,6 +296,7 @@ class KlineRejectsTable(Table):
             ip: str
             ) -> List[Tuple[str, str, str, int, Optional[int]]]:
 
+        async with aiosqlite.connect(self._location) as db:
             cursor = await db.execute("""
                 SELECT nickname, username, hostname, ts, kline_id
                 FROM kline_rejects
