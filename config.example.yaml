@@ -1,5 +1,9 @@
 server: irc.libera.chat:+6697
 nickname: beryllia
+# optional
+#username: beryllia
+# optional
+#realname: beryllia
 password: beryllia:hunter2
 channel: "#libera-klines"
 
@@ -14,6 +18,8 @@ oper:
 
 database:
   user: jess
-  pass: hunter5
-  host: 127.0.0.1
   name: beryllia
+  # optional
+  #pass: hunter5
+  # optional
+  #host: 127.0.0.1
