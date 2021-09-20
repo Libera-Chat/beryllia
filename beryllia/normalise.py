@@ -21,7 +21,6 @@ class RFC1459SearchNormaliser(SearchNormaliser):
             type:  SearchType
             ) -> str:
 
-        print(input)
         if type in {SearchType.NICK, SearchType.USER}:
             return casefold("rfc1459", input)
         else:
