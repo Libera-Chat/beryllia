@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from os.path     import expanduser
 from re          import compile as re_compile
-from typing      import List, Pattern, Tuple
+from typing      import Optional, Tuple
 
 import yaml
 
