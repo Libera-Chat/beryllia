@@ -19,7 +19,7 @@ class Config(object):
 
     db_user: str
     db_pass: Optional[str]
-    db_host: str
+    db_host: Optional[str]
     db_name: str
 
 def load(filepath: str):
@@ -52,6 +52,6 @@ def load(filepath: str):
         (oper_name, oper_file, oper_pass),
         config_yaml["database"]["user"],
         config_yaml["database"].get("pass", None),
-        config_yaml["database"]["host"],
+        config_yaml["database"].get("host", None),
         config_yaml["database"]["name"]
     )
