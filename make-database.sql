@@ -20,8 +20,8 @@ CREATE TABLE kline (
 
 CREATE TABLE kline_remove (
     kline_id INTEGER     NOT NULL  PRIMARY KEY  REFERENCES kline (id)  ON DELETE CASCADE,
-    source   VARCHAR(90) NOT NULL,
-    oper     VARCHAR(16) NOT NULL,
+    source   VARCHAR(90),
+    oper     VARCHAR(16),
     ts       TIMESTAMP   NOT NULL
 );
 
