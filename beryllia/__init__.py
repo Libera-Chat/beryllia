@@ -290,7 +290,7 @@ class Server(BaseServer):
                     f" {c.nickname}!{c.username}@{c.hostname}"
                     f" [{c.realname}]"
                 )
-            return outs
+            return outs or ["no results"]
         else:
             return ["please provide a type and query"]
 
