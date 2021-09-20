@@ -17,6 +17,7 @@ from .database  import Database
 from .normalise import RFC1459SearchNormaliser
 from .util      import oper_up, pretty_delta
 
+RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ \S+ \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
@@ -77,12 +78,27 @@ class Server(BaseServer):
             # snote!
 
             message     = line.params[1]
+            p_cliconn   = RE_CLICONN.search(message)
             p_cliexit   = RE_CLIEXIT.search(message)
             p_klineadd  = RE_KLINEADD.search(message)
             p_klinedel  = RE_KLINEDEL.search(message)
             p_klineexit = RE_KLINEEXIT.search(message)
 
-            if p_cliexit is not None:
+            if p_cliconn is not None:
+                nickname = p_cliconn.group("nick")
+                username = p_cliconn.group("user")
+                realname = p_cliconn.group("real")
+                hostname = p_cliconn.group("host")
+
+                ip: Optional[Union[IPv4Address, IPv6Address]] = None
+                if not (ip_str := p_cliconn.group("ip")) == "0":
+                    ip = ipaddress.ip_address(ip_str)
+
+                await self.database.cliconn.add(
+                    nickname, username, realname, hostname, ip
+                )
+
+            elif p_cliexit is not None:
                 nickname = p_cliexit.group("nick")
                 username = p_cliexit.group("user")
                 hostname = p_cliexit.group("host")
@@ -241,6 +257,40 @@ class Server(BaseServer):
                     f" {kline.reason}"
                 )
             return outs or ["no results"]
+        else:
+            return ["please provide a type and query"]
+
+    async def cmd_cliconn(self, nick: str, sargs: str):
+        args = sargs.split(None, 2)
+        if len(args) > 1:
+            type, query, *_ = args
+            type = type.lower()
+            db   = self.database
+            now  = datetime.utcnow()
+
+            if   type == "ip":
+                try:
+                    ip  = ipaddress.ip_address(query)
+                    ids = await db.cliconn.find_by_ip(ip)
+                except ValueError:
+                    try:
+                        cidr = ipaddress.ip_network(query,  strict=False)
+                        ids  = await db.cliconn.find_by_cidr(cidr)
+                    except ValueError:
+                        ids  = await db.cliconn.find_by_ip_glob(query)
+            else:
+                return [f"unknown query type '{type}'"]
+
+            outs: List[str] = []
+            for id in ids[:3]:
+                c   = await db.cliconn.get(id)
+                cts = pretty_delta(now-c.ts)
+                outs.append(
+                    f"\x02{cts}\x02 ago -"
+                    f" {c.nickname}!{c.username}@{c.hostname}"
+                    f" [{c.realname}]"
+                )
+            return outs
         else:
             return ["please provide a type and query"]
 

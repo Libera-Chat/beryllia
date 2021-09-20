@@ -38,9 +38,28 @@ CREATE TABLE kline_kill (
     ts          TIMESTAMP   NOT NULL
 );
 
+CREATE TABLE cliconn (
+    id          SERIAL PRIMARY KEY,
+    nickname    VARCHAR(16) NOT NULL,
+    search_nick VARCHAR(16) NOT NULL,
+    username    VARCHAR(10) NOT NULL,
+    search_user VARCHAR(10) NOT NULL,
+    realname    VARCHAR(50) NOT NULL,
+    search_real VARCHAR(50) NOT NULL,
+    hostname    VARCHAR(64) NOT NULL,
+    search_host VARCHAR(64) NOT NULL,
+    ip          INET,
+    ts          TIMESTAMP   NOT NULL
+);
+
 CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
 CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
 CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
 CREATE INDEX kline_kill_ip          ON kline_kill(ip);
+
+CREATE INDEX cliconn_search_nick    ON cliconn(search_nick);
+CREATE INDEX cliconn_search_user    ON cliconn(search_user);
+CREATE INDEX cliconn_search_host    ON cliconn(search_host);
+CREATE INDEX cliconn_ip             ON cliconn(ip);
 
 COMMIT;
