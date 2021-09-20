@@ -1,59 +1,32 @@
 import asyncio, ipaddress, re, time
-from collections import deque, OrderedDict
-from dataclasses import dataclass
+from collections import OrderedDict
 from datetime    import datetime
-from typing      import Deque, Dict, List, Optional, Set, Tuple
+from typing      import Dict, List, Optional, Set, Tuple
 from typing      import OrderedDict as TOrderedDict
 
 from irctokens import build, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
-from ircrobots import ConnectionParams
 
 from ircstates.numerics import *
-from ircchallenge       import Challenge
 from ircrobots.ircv3    import Capability
 from ircrobots.matching import ANY, Folded, Response, SELF
 
-from .config   import Config
-from .database import Database
+from .config    import Config
+from .database  import Database
+from .normalise import RFC1459SearchNormaliser
+from .util      import oper_up, pretty_delta
 
-# not in ircstates yet...
-RPL_RSACHALLENGE2      = "740"
-RPL_ENDOFRSACHALLENGE2 = "741"
-RPL_YOUREOPER          = "381"
-
-RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nickname>\S+) \((?P<userhost>\S+)\) .* \[(?P<ip>\S+)\]$")
+RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- KLINE active for (?P<nickname>[^[]+)\[\S+ .(?P<mask>\S+).$")
-RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nickname>[^[]+)\[(?P<username>[^@]+)@(?P<hostname>\S+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
-
-SECONDS_MINUTES = 60
-SECONDS_HOURS   = SECONDS_MINUTES*60
-SECONDS_DAYS    = SECONDS_HOURS*24
-SECONDS_WEEKS   = SECONDS_DAYS*7
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 
-def _pretty_time(total: int, max_units: int=2) -> str:
-    counts: List[int] = []
-    counts[0:2] = divmod(total,      SECONDS_WEEKS)
-    counts[1:3] = divmod(counts[-1], SECONDS_DAYS)
-    counts[2:4] = divmod(counts[-1], SECONDS_HOURS)
-    counts[3:5] = divmod(counts[-1], SECONDS_MINUTES)
-
-    outs: List[str] = []
-    for unit, i in zip("wdhms", counts):
-        if i > 0 and len(outs) < max_units:
-            outs.append(f"{i}{unit}")
-
-    return "".join(outs)
-
-def _nick(source: str) -> str:
-    return source.split("!", 1)[0]
-
 class Server(BaseServer):
+    database: Database
+
     def __init__(self,
             bot:    BaseBot,
             name:   str,
@@ -63,41 +36,12 @@ class Server(BaseServer):
         self.desired_caps.add(CAP_OPER)
 
         self._config  = config
-        self.database = Database(config.database)
 
-        self._recent_klines: TOrderedDict[str, int] = OrderedDict()
         self._wait_for_exit: Dict[str, str] = {}
 
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
         pass
-
-    async def _oper_up(self,
-            oper_name: str,
-            oper_file: str,
-            oper_pass: str):
-
-        try:
-            challenge = Challenge(keyfile=oper_file, password=oper_pass)
-        except Exception:
-            traceback.print_exc()
-        else:
-            await self.send(build("CHALLENGE", [oper_name]))
-            challenge_text = Response(RPL_RSACHALLENGE2,      [SELF, ANY])
-            challenge_stop = Response(RPL_ENDOFRSACHALLENGE2, [SELF])
-            #:lithium.libera.chat 740 sandcat :foobarbazmeow
-            #:lithium.libera.chat 741 sandcat :End of CHALLENGE
-
-            while True:
-                challenge_line = await self.wait_for({
-                    challenge_text, challenge_stop
-                })
-                if challenge_line.command == RPL_RSACHALLENGE2:
-                    challenge.push(challenge_line.params[1])
-                else:
-                    retort = challenge.finalise()
-                    await self.send(build("CHALLENGE", [f"+{retort}"]))
-                    break
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -105,7 +49,18 @@ class Server(BaseServer):
         if line.command == RPL_WELCOME:
             await self.send(build("MODE", [self.nickname, "+g"]))
             oper_name, oper_file, oper_pass = self._config.oper
-            await self._oper_up(oper_name, oper_file, oper_pass)
+            await oper_up(self, oper_name, oper_file, oper_pass)
+
+        elif line.command in {RPL_ENDOFMOTD, ERR_NOMOTD}:
+            # we should now know our casemap, so connect database.
+            # we need the casemap for this to normalise things for searching
+            self.database = await Database.connect(
+                self._config.db_user,
+                self._config.db_pass,
+                self._config.db_host,
+                self._config.db_name,
+                RFC1459SearchNormaliser()
+            )
 
         elif line.command == RPL_YOUREOPER:
             # F far cliconn
@@ -126,12 +81,11 @@ class Server(BaseServer):
             p_klineadd  = RE_KLINEADD.search(message)
             p_klinedel  = RE_KLINEDEL.search(message)
             p_klineexit = RE_KLINEEXIT.search(message)
-            p_klinerej  = RE_KLINEREJ.search(message)
 
             if p_cliexit is not None:
-                nickname = p_cliexit.group("nickname")
-                userhost = p_cliexit.group("userhost")
-                username, hostname = userhost.split("@")
+                nickname = p_cliexit.group("nick")
+                username = p_cliexit.group("user")
+                hostname = p_cliexit.group("host")
 
                 ip: Optional[str] = p_cliexit.group("ip")
                 if ip == "0":
@@ -140,22 +94,14 @@ class Server(BaseServer):
                     ip = ipaddress.ip_address(ip).compressed
 
                 if nickname in self._wait_for_exit:
-                    mask = self._wait_for_exit.pop(nickname)
-
-                    if mask in self._recent_klines:
-                        kline_id = self._recent_klines[mask]
-                        await self.database.kline_kills.add(
-                            nickname,
-                            self.casefold(nickname),
-                            username,
-                            self.casefold(username),
-                            hostname,
-                            hostname.lower(),
-                            ip,
-                            kline_id
+                    mask     = self._wait_for_exit.pop(nickname)
+                    kline_id = await self.database.klines.find(mask)
+                    if kline_id is not None:
+                        await self.database.kline_kill.add(
+                            kline_id, nickname, username, hostname, ip
                         )
 
-            if p_klineadd is not None:
+            elif p_klineadd is not None:
                 source   = p_klineadd.group("source")
                 oper     = p_klineadd.group("oper")
                 mask     = p_klineadd.group("mask")
@@ -164,8 +110,8 @@ class Server(BaseServer):
 
                 username, hostname  = mask.split("@")
 
-                old_id = await self.database.klines.find(mask)
-                id     = await self.database.klines.add(
+                old_id = await self.database.kline.find(mask)
+                id     = await self.database.kline.add(
                     source, oper, mask, int(duration)*60, reason
                 )
 
@@ -173,64 +119,23 @@ class Server(BaseServer):
                 # kills affected by the first k-line
                 if old_id is not None:
                     db    = self.database
-                    kills = await db.kline_kills.find_by_kline(old_id)
+                    kills = await db.kline_kill.find_by_kline(old_id)
                     for kill_id in kills:
-                        await db.kline_kills.set_kline(kill_id, id)
-
-                self._recent_klines[mask] = id
-                self._recent_klines.move_to_end(mask, last=False)
-                if len(self._recent_klines) > 64:
-                    self._recent_klines.popitem(last=True)
+                        await db.kline_kill.set_kline(kill_id, id)
 
             elif p_klinedel is not None:
                 source = p_klinedel.group("source")
                 oper   = p_klinedel.group("oper")
                 mask   = p_klinedel.group("mask")
-                id     = await self.database.klines.find(mask)
+                id     = await self.database.kline.find(mask)
                 if id is not None:
-                    await self.database.kline_removes.add(id, source, oper)
+                    await self.database.kline_remove.add(id, source, oper)
 
             elif p_klineexit is not None:
                 nickname = p_klineexit.group("nickname")
                 mask     = p_klineexit.group("mask")
                 # we wait until cliexit because that snote has an IP in it
                 self._wait_for_exit[nickname] = mask
-
-            elif p_klinerej is not None:
-                nickname = p_klinerej.group("nickname")
-                username = p_klinerej.group("username")
-                hostname = p_klinerej.group("hostname")
-                mask     = p_klinerej.group("mask")
-
-                ip: Optional[str] = p_klinerej.group("ip")
-                if ip == "0":
-                    ip = None
-                else:
-                    ip = ipaddress.ip_address(ip).compressed
-
-                search_nick = self.casefold(nickname)
-                search_user = self.casefold(username)
-                search_host = hostname.lower()
-
-                kline_id = await self.database.klines.find(mask)
-                if kline_id is not None:
-                    if not await self.database.kline_rejects.has(
-                            search_nick,
-                            search_user,
-                            search_host,
-                            ip,
-                            kline_id):
-
-                        await self.database.kline_rejects.add(
-                            nickname,
-                            search_nick,
-                            username,
-                            search_user,
-                            hostname,
-                            search_host,
-                            ip_comp,
-                            kline_id
-                        )
 
         elif (line.command == "PRIVMSG" and
                 not self.is_me(line.hostmask.nickname)):
@@ -286,50 +191,56 @@ class Server(BaseServer):
         if len(args) > 1:
             type, query, *_ = args
             type = type.lower()
-            now  = int(time.time())
+            now  = datetime.utcnow()
 
             if   type == "nick":
                 fold  = self.casefold(query)
-                kills = await self.database.kline_kills.find_by_nick(fold)
+                kills = await self.database.kline_kill.find_by_nick(fold)
             elif type == "host":
                 host  = query.lower()
-                kills = await self.database.kline_kills.find_by_host(host)
+                kills = await self.database.kline_kill.find_by_host(host)
             elif type == "ip":
                 try:
-                    comp = ipaddress.ip_address(query).compressed
+                    addr = ipaddress.ip_address(query)
                 except ValueError:
                     return [f"'{query}' isn't a valid IP"]
-                kills = await self.database.kline_kills.find_by_ip(comp)
+                kills = await self.database.kline_kill.find_by_ip(addr)
+            else:
+                return [f"unknown query type '{type}'"]
 
-            out: List[str] = []
-            for nick, user, host, ts, kline_id in kills[:3]:
-                ts_iso = datetime.utcfromtimestamp(ts).isoformat()
-                out.append(f"{nick}!{user}@{host} kill at {ts_iso}")
+            outs: List[str] = []
+            for kill_id in kills[:3]:
+                kill   = await self.database.kline_kill.get(kill_id)
+                kline  = await self.database.kline.get(kill.kline_id)
+                remove = await self.database.kline_remove.get(
+                    kill.kline_id
+                )
 
-                if kline_id is not None:
-                    kline  = await self.database.klines.get(kline_id)
-                    remove = await self.database.kline_removes.get(kline_id)
+                outs.append(
+                    f"{kill.nickname}!{kill.username}@{kill.hostname}"
+                    f" killed at {kill.ts.isoformat()}"
+                )
 
-                    kts_human   = _pretty_time(now-kline.ts)
-                    kline_s     = (
-                        f"K-Line: {kline.mask} \x02{kts_human} ago\x02"
-                        f" by \x02{kline.oper}\x02"
-                        f" for {kline.duration//60} mins"
-                    )
+                kts_human = pretty_delta(now-kline.ts)
 
-                    if remove is not None:
-                        remover = remove.oper or "unknown"
-                        kline_s += \
-                            f" (\x0303removed\x03 by \x02{remover}\x02)"
-                    elif kline.expire < now:
-                        kline_s += " (\x0303expired\x03)"
-                    else:
-                        kline_s += " (\x0304active\x03)"
+                if remove is not None:
+                    remover  = remove.oper or "unknown"
+                    remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
+                elif kline.expire < now:
+                    remove_s = "\x0303expired\x03"
+                else:
+                    remove_s = "\x0304active\x03"
 
-                    kline_s += f": {kline.reason}"
-                    out.append(f"  {kline_s}")
-            return out or ["no results"]
-
+                outs.append(
+                    "  K-Line:"
+                    f" {kline.mask}"
+                    f" \x02{kts_human} ago\x02"
+                    f" by \x02{kline.oper}\x02"
+                    f" for {kline.duration//60} mins"
+                    f" ({remove_s})"
+                    f" {kline.reason}"
+                )
+            return outs or ["no results"]
         else:
             return ["please provide a type and query"]
 

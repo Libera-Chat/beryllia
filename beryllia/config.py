@@ -17,7 +17,10 @@ class Config(object):
     sasl: Tuple[str, str]
     oper: Tuple[str, str]
 
-    database: str
+    db_user: str
+    db_pass: Optional[str]
+    db_host: str
+    db_name: str
 
 def load(filepath: str):
     with open(filepath) as file:
@@ -47,5 +50,8 @@ def load(filepath: str):
         config_yaml["channel"],
         (config_yaml["sasl"]["username"], config_yaml["sasl"]["password"]),
         (oper_name, oper_file, oper_pass),
-        expanduser(config_yaml["database"])
+        config_yaml["database"]["user"],
+        config_yaml["database"].get("pass", None),
+        config_yaml["database"]["host"],
+        config_yaml["database"]["name"]
     )

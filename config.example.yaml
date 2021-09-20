@@ -12,4 +12,8 @@ oper:
   file: ~/oper.key
   pass: hunter4
 
-database: ~/.klines.db
+database:
+  user: jess
+  pass: hunter5
+  host: 127.0.0.1
+  name: beryllia

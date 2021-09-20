@@ -1,57 +1,46 @@
-PRAGMA foreign_keys=OFF;
-BEGIN TRANSACTION;
-CREATE TABLE klines (
-    id       INTEGER PRIMARY KEY,
-    mask     TEXT NOT NULL,
-    source   TEXT NOT NULL,
-    oper     TEXT NOT NULL,
-    duration INTEGER NOT NULL,
-    reason   TEXT NOT NULL,
-    ts       INTEGER NOT NULL,
-    expire   INTEGER NOT NULL
-);
-CREATE TABLE kline_removes (
-    id     INTEGER NOT NULL,
-    source TEXT,
-    oper   TEXT,
-    ts     INTEGER NOT NULL,
-    PRIMARY KEY (id),
-    FOREIGN KEY (id) REFERENCES klines(id)
-);
-CREATE TABLE kline_rejects (
-    nickname    TEXT NOT NULL,
-    search_nick TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    search_user TEXT NOT NULL,
-    hostname    TEXT NOT NULL,
-    search_host TEXT NOT NULL,
-    ip          TEXT,
-    kline_id    INTEGER NOT NULL,
-    PRIMARY KEY (search_nick, search_user, search_host, ip, kline_id),
-    FOREIGN KEY (kline_id) REFERENCES klines(id)
-);
-CREATE TABLE kline_kills (
-    id          INTEGER PRIMARY KEY,
-    nickname    TEXT NOT NULL,
-    search_nick TEXT NOT NULL,
-    username    TEXT NOT NULL,
-    search_user TEXT NOT NULL,
-    hostname    TEXT NOT NULL,
-    search_host TEXT NOT NULL,
-    ip          TEXT,
-    ts          INTEGER NOT NULL,
-    kline_id    INTEGER,
-    FOREIGN KEY(kline_id) REFERENCES klines(id)
+-- 16  is nickname length
+-- 10  is username length
+-- 50  is realname length
+-- 64  is hostname length
+-- 90  is mask length
+-- 260 is reason length
+
+BEGIN;
+
+CREATE TABLE kline (
+    id       SERIAL PRIMARY KEY,
+    mask     VARCHAR(90)  NOT NULL,
+    source   VARCHAR(90)  NOT NULL,
+    oper     VARCHAR(16)  NOT NULL,
+    duration INT          NOT NULL,
+    reason   VARCHAR(260) NOT NULL,
+    ts       TIMESTAMP    NOT NULL,
+    expire   TIMESTAMP    NOT NULL
 );
 
-CREATE INDEX kills_search_nick   ON kline_kills(search_nick);
-CREATE INDEX kills_search_user   ON kline_kills(search_user);
-CREATE INDEX kills_search_host   ON kline_kills(search_host);
-CREATE INDEX kills_ip            ON kline_kills(ip);
+CREATE TABLE kline_remove (
+    kline_id INTEGER     NOT NULL  PRIMARY KEY  REFERENCES kline (id),
+    source   VARCHAR(90) NOT NULL,
+    oper     VARCHAR(16) NOT NULL,
+    ts       TIMESTAMP   NOT NULL
+);
 
-CREATE INDEX rejects_search_nick ON kline_rejects(search_nick);
-CREATE INDEX rejects_search_user ON kline_rejects(search_user);
-CREATE INDEX rejects_search_host ON kline_rejects(search_host);
-CREATE INDEX rejects_ip          ON kline_rejects(ip);
+CREATE TABLE kline_kill (
+    id          SERIAL PRIMARY KEY,
+    kline_id    INTEGER     NOT NULL  REFERENCES kline (id),
+    nickname    VARCHAR(16) NOT NULL,
+    search_nick VARCHAR(16) NOT NULL,
+    username    VARCHAR(10) NOT NULL,
+    search_user VARCHAR(10) NOT NULL,
+    hostname    VARCHAR(64) NOT NULL,
+    search_host VARCHAR(64) NOT NULL,
+    ip          INET,
+    ts          TIMESTAMP   NOT NULL
+);
+
+CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
+CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
+CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
+CREATE INDEX kline_kill_ip          ON kline_kill(ip);
 
 COMMIT;
