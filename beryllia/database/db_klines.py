@@ -181,7 +181,7 @@ class KLineKillTable(Table):
         return [row[0] for row in rows]
 
     async def find_by_kline(self, kline_id: int) -> List[int]:
-        row = await self.connection.fetch("""
+        rows = await self.connection.fetch("""
             SELECT id
             FROM kline_kill
             WHERE kline_id = $1
