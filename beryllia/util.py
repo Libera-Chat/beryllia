@@ -32,7 +32,7 @@ def pretty_delta(
             if len(outs) == max_units:
                 break
 
-    return "".join(outs)
+    return "".join(outs) or "0s"
 
 async def oper_up(
         server:    Server,
