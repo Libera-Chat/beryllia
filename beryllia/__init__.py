@@ -95,7 +95,7 @@ class Server(BaseServer):
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)
-                    kline_id = await self.database.klines.find(mask)
+                    kline_id = await self.database.kline.find(mask)
                     if kline_id is not None:
                         await self.database.kline_kill.add(
                             kline_id, nickname, username, hostname, ip
