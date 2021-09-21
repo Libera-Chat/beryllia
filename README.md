@@ -7,7 +7,7 @@ track when and why users were affected by k-lines
 ```
 $ cp config.example.yaml config.yaml
 $ vim config.yaml
-$ sqlite3 ~/.klines.db < make-database.sql
+$ psql < make-database.sql
 ```
 
 ## running
