@@ -60,16 +60,20 @@ CREATE TABLE statsp (
 );
 
 
+-- to speed up searches
 CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
 CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
 CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
 CREATE INDEX kline_kill_ip          ON kline_kill(ip);
-
 CREATE INDEX cliconn_search_nick    ON cliconn(search_nick);
 CREATE INDEX cliconn_search_user    ON cliconn(search_user);
 CREATE INDEX cliconn_search_host    ON cliconn(search_host);
 CREATE INDEX cliconn_ip             ON cliconn(ip);
-
 CREATE INDEX statsp_oper            ON statsp(oper);
+
+-- to speed up bulk/cascaded deletions of klines past retention period
+CREATE INDEX kline_expire           ON kline(expire);
+CREATE INDEX kline_kill_kline_id    ON kline_kill(kline_id);
+CREATE INDEX kline_remove_kline_id  ON kline_remove(kline_id);
 
 COMMIT;
