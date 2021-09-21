@@ -39,6 +39,7 @@ class Server(BaseServer):
 
         self._config  = config
 
+        self._database_init: bool = False
         self._wait_for_exit: Dict[str, str] = {}
 
     def set_throttle(self, rate: int, time: float):
@@ -46,8 +47,10 @@ class Server(BaseServer):
         pass
 
     async def minutely(self, now: datetime):
-        for oper, mask in await get_statsp(self):
-            await self.database.statsp.add(oper, mask, now)
+        # this might hit before we've made our database after RPL_ISUPPORT
+        if self._database_init:
+            for oper, mask in await get_statsp(self):
+                await self.database.statsp.add(oper, mask, now)
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -67,6 +70,7 @@ class Server(BaseServer):
                 self._config.db_name,
                 RFC1459SearchNormaliser()
             )
+            self._database_init = True
 
         elif line.command == RPL_YOUREOPER:
             # F far cliconn
