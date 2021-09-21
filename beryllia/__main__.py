@@ -1,10 +1,11 @@
+import asyncio
 from argparse import ArgumentParser
-from asyncio  import run as asyncio_run
 
 from ircrobots import ConnectionParams, SASLUserPass
 
 from .       import Bot
 from .config import Config, load as config_load
+from .cron   import cron
 
 async def main(config: Config):
     bot = Bot(config)
@@ -24,7 +25,10 @@ async def main(config: Config):
         autojoin=[config.channel]
     )
     await bot.add_server(host, params)
-    await bot.run()
+    await asyncio.gather(
+        cron(bot),
+        bot.run()
+    )
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -32,4 +36,4 @@ if __name__ == "__main__":
     args   = parser.parse_args()
 
     config = config_load(args.config)
-    asyncio_run(main(config))
+    asyncio.run(main(config))

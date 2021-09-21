@@ -2,6 +2,7 @@ import asyncpg
 
 from .db_cliconns import *
 from .db_klines   import *
+from .db_statsp   import *
 
 from ..normalise  import SearchType, SearchNormaliser
 
@@ -15,6 +16,7 @@ class Database(object):
         self.kline_remove = KLineRemoveTable(connection, normaliser)
         self.kline_kill   = KLineKillTable(connection, normaliser)
         self.cliconn      = CliconnTable(connection, normaliser)
+        self.statsp       = StatsPTable(connection, normaliser)
 
     @classmethod
     async def connect(self,

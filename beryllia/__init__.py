@@ -1,6 +1,6 @@
 import asyncio, ipaddress, re, time
 from collections import OrderedDict
-from datetime    import datetime
+from datetime    import datetime, timedelta
 from typing      import Dict, List, Optional, Set, Tuple
 from typing      import OrderedDict as TOrderedDict
 
@@ -15,13 +15,14 @@ from ircrobots.matching import ANY, Folded, Response, SELF
 from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
-from .util      import oper_up, pretty_delta
+from .util      import oper_up, pretty_delta, get_statsp
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ \S+ \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- KLINE active for (?P<nickname>[^[]+)\[\S+ .(?P<mask>\S+).$")
+RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 
@@ -43,6 +44,10 @@ class Server(BaseServer):
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
         pass
+
+    async def minutely(self, now: datetime):
+        for oper, mask in await get_statsp(self):
+            await self.database.statsp.add(oper, mask, now)
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -293,6 +298,30 @@ class Server(BaseServer):
             return outs or ["no results"]
         else:
             return ["please provide a type and query"]
+
+    async def cmd_statsp(self,
+            nick: str,
+            args: str):
+
+        match = RE_DATE.search(args.strip() or "1970-01-01")
+        if match is not None:
+            since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
+            statsp_d = await self.database.statsp.count_since(since_ts)
+            col_size = max([len(str(m)) for m in statsp_d.values()])
+ 
+            outs: List[str] = []
+            for oper, minutes in statsp_d.items():
+                mins_str = str(minutes).rjust(col_size)
+                outs.append(f"{mins_str} mins - {oper}")
+
+            total_min = sum(statsp_d.values())
+            total_str = pretty_delta(timedelta(minutes=total_min), long=True)
+            outs.append(f"total: {total_str}")
+
+            return outs
+        else:
+            return [f"that's not a date"]
+
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")

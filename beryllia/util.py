@@ -9,30 +9,44 @@ from ircchallenge       import Challenge
 from ircrobots.matching import ANY, Folded, Response, SELF
 from ircstates.numerics import *
 
+# not in ircstates.numerics
+RPL_STATS      = "249"
+RPL_ENDOFSTATS = "219"
+
+RE_OPERNAME = re.compile(r"^is opered as (\S+)(?:,|$)")
+
 SECONDS_MINUTES = 60
 SECONDS_HOURS   = SECONDS_MINUTES*60
 SECONDS_DAYS    = SECONDS_HOURS*24
 SECONDS_WEEKS   = SECONDS_DAYS*7
-TIME_UNITS = list(zip(
+
+TIME_UNITS_SHORT = list(zip(
     "wdhms",
+    [SECONDS_WEEKS, SECONDS_DAYS, SECONDS_HOURS, SECONDS_MINUTES, 1]
+))
+TIME_UNITS_LONG  = list(zip(
+    ["weeks", "days", "hours", "minutes", "seconds"],
     [SECONDS_WEEKS, SECONDS_DAYS, SECONDS_HOURS, SECONDS_MINUTES, 1]
 ))
 
 def pretty_delta(
         delta:     timedelta,
-        max_units: int=2
+        max_units: int=2,
+        long:      bool=False
         ) -> str:
 
     denominator = int(delta.total_seconds())
     outs: List[str] = []
-    for unit, div in TIME_UNITS:
+    time_units  = TIME_UNITS_LONG if long else TIME_UNITS_SHORT
+    for unit, div in time_units:
         numerator, denominator = divmod(denominator, div)
         if numerator > 0:
-            outs.append(f"{numerator}{unit}")
+            sep = " " if long else ""
+            outs.append(f"{numerator}{sep}{unit}")
             if len(outs) == max_units:
                 break
 
-    return "".join(outs) or "0s"
+    return (" " if long else "").join(outs)
 
 async def oper_up(
         server:    Server,
@@ -61,3 +75,53 @@ async def oper_up(
                 retort = challenge.finalise()
                 await server.send(build("CHALLENGE", [f"+{retort}"]))
                 break
+
+async def get_whois(
+        server:   Server,
+        nickname: str
+        ) -> Optional[Tuple[str, Optional[str]]]:
+
+    await server.send(build("WHOIS", [nickname]))
+
+    whois_mask = Response(RPL_WHOISUSER,     [SELF, Folded(nickname)])
+    whois_oper = Response(RPL_WHOISOPERATOR, [SELF, Folded(nickname)])
+    whois_end  = Response(RPL_ENDOFWHOIS,    [SELF, Folded(nickname)])
+
+    whois_line = await server.wait_for({whois_mask, whois_end})
+    if whois_line.command == RPL_WHOISUSER:
+        nick, user, host = whois_line.params[1:4]
+        mask = f"{nick}!{user}@{host}"
+
+        whois_line = await server.wait_for({whois_oper, whois_end})
+        if whois_line.command == RPL_WHOISOPERATOR:
+            match = RE_OPERNAME.search(whois_line.params[2])
+            if match is not None:
+                return (mask, match.group(1))
+        return (mask, None)
+    else:
+        return None
+
+async def get_statsp(server: Server) -> List[Tuple[str, str]]:
+    await server.send(build("STATS", ["p"]))
+
+    statsp_texts: List[str] = []
+    while True:
+        statsp_line = await server.wait_for({
+            Response(RPL_STATS,      [SELF, "p", ANY]),
+            Response(RPL_ENDOFSTATS, [SELF, "p"])
+        })
+        if statsp_line.command == RPL_STATS:
+            statsp_texts.append(statsp_line.params[2])
+        else:
+            break
+
+    opers: List[Tuple[str, str]] = []
+    for statsp_text in statsp_texts[:-1]:
+        nick, *_ = statsp_text.split(" ", 1)
+        whois    = await get_whois(server, nick)
+        if whois is not None:
+            mask, oper = whois
+            if oper is not None:
+                opers.append((oper, mask))
+
+    return opers
