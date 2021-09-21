@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from asyncpg     import Connection
+from asyncpg     import Connection, Pool
 from ..normalise import SearchNormaliser, SearchType
 
 @dataclass
 class Table(object):
-    connection: Connection
+    pool:       Pool
     normaliser: SearchNormaliser
 
     def to_search(self,

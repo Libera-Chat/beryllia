@@ -33,18 +33,21 @@ class DBKLineRemove(object):
 
 class KLineTable(Table):
     async def get(self, id: int) -> Optional[DBKLine]:
-        row = await self.connection.fetchrow("""
+        query = """
             SELECT mask, source, oper, duration, reason, ts, expire
             FROM kline
             WHERE id = $1
-        """, id)
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, id)
+
         if row is not None:
             return DBKLine(*row)
         else:
             return None
 
     async def find(self, mask: str) -> Optional[int]:
-        return await self.connection.fetchval("""
+        query = """
             SELECT kline.id FROM kline
 
             LEFT JOIN kline_remove
@@ -52,10 +55,12 @@ class KLineTable(Table):
             AND kline_remove.ts IS NULL
 
             WHERE kline.mask = $1
-            AND kline.expire > $2
+            AND kline.expire > NOW()
 
             ORDER BY kline.id DESC
-        """, mask, datetime.utcnow())
+        """
+        async with self.pool.acquire() as conn:
+            return await conn.fetchval(query, mask)
 
     async def add(self,
             source:   str,
@@ -64,26 +69,25 @@ class KLineTable(Table):
             duration: int,
             reason:   str) -> int:
 
-        ts_now = datetime.utcnow()
-
-        sql = """
+        utcnow = datetime.utcnow()
+        query  = """
             INSERT INTO kline
             (mask, source, oper, duration, reason, ts, expire)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
         """
-        await self.connection.execute(
-            sql,
+        args = [
             mask,
             source,
             oper,
             duration,
             reason,
-            ts_now,
-            ts_now + timedelta(seconds=duration)
-        )
+            utcnow,
+            utcnow + timedelta(seconds=duration)
+        ]
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, *args)
 
         return await self.find(mask) or -1 # -1 to fix typehint
-
 
 class KLineRemoveTable(Table):
     async def add(self,
@@ -91,17 +95,22 @@ class KLineRemoveTable(Table):
             source: Optional[str],
             oper:   Optional[str]):
 
-        await self.connection.execute("""
+        query = """
             INSERT INTO kline_remove (kline_id, source, oper, ts)
-            VALUES ($1, $2, $3, $4)
-        """, id, source, oper, datetime.utcnow())
+            VALUES ($1, $2, $3, NOW()::TIMESTAMP)
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, id, source, oper)
 
     async def get(self, id: int) -> Optional[DBKLineRemove]:
-        row = await self.connection.fetchrow("""
+        query = """
             SELECT source, oper, ts
             FROM kline_remove
             WHERE kline_id = $1
-        """, id)
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, id)
+
         if row is not None:
             return DBKLineRemove(*row)
         else:
@@ -127,10 +136,9 @@ class KLineKillTable(Table):
                 kline_id,
                 ts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()::timestamp)
         """
-        await self.connection.execute(
-            query,
+        args = [
             nickname,
             self.to_search(nickname, SearchType.NICK),
             username,
@@ -138,62 +146,80 @@ class KLineKillTable(Table):
             hostname,
             self.to_search(hostname, SearchType.HOST),
             ip,
-            kline_id,
-            datetime.utcnow()
-        )
+            kline_id
+        ]
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, *args)
 
     async def get(self, id: int) -> Optional[DBKLineKill]:
-        row = await self.connection.fetchrow("""
+        query = """
             SELECT kline_id, nickname, username, hostname, ip, ts
             FROM kline_kill
             WHERE id = $1
-        """, id)
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, id)
+
         if row is not None:
             return DBKLineKill(*row)
         else:
             return None
 
     async def find_by_nick(self, search_nick: str) -> List[int]:
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM kline_kill
             WHERE search_nick = $1
             ORDER BY ts DESC
-        """, search_nick)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, search_nick)
+
         return [row[0] for row in rows]
 
     async def find_by_host(self, search_host: str) -> List[int]:
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM kline_kill
             WHERE search_host = $1
             ORDER BY ts DESC
-        """, search_host)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, search_host)
+
         return [row[0] for row in rows]
 
     async def find_by_ip(self, ip: str) -> List[int]:
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM kline_kill
             WHERE ip = $1
             ORDER BY ts DESC
-        """, ip)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, ip)
+
         return [row[0] for row in rows]
 
     async def find_by_kline(self, kline_id: int) -> List[int]:
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM kline_kill
             WHERE kline_id = $1
-        """, kline_id)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, kline_id)
+
         return [row[0] for row in rows]
 
     async def set_kline(self,
             kill_id:  int,
             kline_id: int):
 
-        await db.execute("""
+        query = """
             UPDATE kline_kill
             SET kline = $1
             WHERE id = $2
-        """, kline_id, kill_id)
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, kline_id, kill_id)

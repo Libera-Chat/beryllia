@@ -18,11 +18,14 @@ class DBCliconn(object):
 
 class CliconnTable(Table):
     async def get(self, id: int) -> Optional[DBCliconn]:
-        row = await self.connection.fetchrow("""
+        query = """
             SELECT nickname, username, realname, hostname, ip, ts
             FROM cliconn
             WHERE id = $1
-        """, id)
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, id)
+
         if row is not None:
             return DBCliconn(*row)
         else:
@@ -51,8 +54,7 @@ class CliconnTable(Table):
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         """
-        await self.connection.execute(
-            query,
+        args = [
             nickname,
             self.to_search(nickname, SearchType.NICK),
             username,
@@ -63,37 +65,49 @@ class CliconnTable(Table):
             self.to_search(hostname, SearchType.HOST),
             ip,
             datetime.utcnow()
-        )
+        ]
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, *args)
 
     async def find_by_ip(self,
             ip: Union[IPv4Address, IPv6Address]
             ) -> List[int]:
 
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM cliconn
             WHERE ip = $1
             ORDER BY ts DESC
-        """, ip)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, ip)
         return [row[0] for row in rows]
 
     async def find_by_cidr(self,
             cidr: Union[IPv4Network, IPv6Network]
             ) -> List[int]:
 
-        rows = await self.connection.fetch("""
+        query = """
             SELECT id
             FROM cliconn
             WHERE ip << $1
             ORDER BY ts DESC
-        """, cidr)
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, cidr)
         return [row[0] for row in rows]
 
     async def find_by_ip_glob(self, glob: str) -> List[int]:
-        rows = await self.connection.fetch("""
+        glob_t = (glob
+            .replace("*", "%") # one or more of any character
+            .replace("?", "_") # one of any character
+        )
+        query  = """
             SELECT id
             FROM cliconn
             WHERE TEXT(ip) LIKE $1
             ORDER BY ts DESC
-        """, glob.replace("*", "%").replace("?", "_"))
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, glob_t)
         return [row[0] for row in rows]

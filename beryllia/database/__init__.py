@@ -8,15 +8,15 @@ from ..normalise  import SearchType, SearchNormaliser
 
 class Database(object):
     def __init__(self,
-            connection: asyncpg.Connection,
+            pool:       asyncpg.Pool,
             normaliser: SearchNormaliser
             ):
 
-        self.kline        = KLineTable(connection, normaliser)
-        self.kline_remove = KLineRemoveTable(connection, normaliser)
-        self.kline_kill   = KLineKillTable(connection, normaliser)
-        self.cliconn      = CliconnTable(connection, normaliser)
-        self.statsp       = StatsPTable(connection, normaliser)
+        self.kline        = KLineTable(pool, normaliser)
+        self.kline_remove = KLineRemoveTable(pool, normaliser)
+        self.kline_kill   = KLineKillTable(pool, normaliser)
+        self.cliconn      = CliconnTable(pool, normaliser)
+        self.statsp       = StatsPTable(pool, normaliser)
 
     @classmethod
     async def connect(self,
@@ -26,10 +26,10 @@ class Database(object):
             db_name:    str,
             normaliser: SearchNormaliser):
 
-        connection = await asyncpg.connect(
+        pool = await asyncpg.create_pool(
             user    =username,
             password=password,
             host    =hostname,
             database=db_name
         )
-        return Database(connection, normaliser)
+        return Database(pool, normaliser)
