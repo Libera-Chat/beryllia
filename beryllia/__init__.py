@@ -49,8 +49,9 @@ class Server(BaseServer):
     async def minutely(self, now: datetime):
         # this might hit before we've made our database after RPL_ISUPPORT
         if self._database_init:
-            for oper, mask in await get_statsp(self):
-                await self.database.statsp.add(oper, mask, now)
+            async with self.read_lock:
+                for oper, mask in await get_statsp(self):
+                    await self.database.statsp.add(oper, mask, now)
 
     async def line_read(self, line: Line):
         now = time.monotonic()
