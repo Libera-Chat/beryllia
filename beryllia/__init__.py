@@ -284,7 +284,7 @@ class Server(BaseServer):
                     ids = await db.cliconn.find_by_ip(ip)
                 except ValueError:
                     try:
-                        cidr = ipaddress.ip_network(query,  strict=False)
+                        cidr = ipaddress.ip_network(query, strict=False)
                         ids  = await db.cliconn.find_by_cidr(cidr)
                     except ValueError:
                         ids  = await db.cliconn.find_by_ip_glob(query)
