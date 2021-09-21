@@ -52,7 +52,7 @@ class CliconnTable(Table):
                 ip,
                 ts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()::TIMESTAMP)
         """
         args = [
             nickname,
@@ -63,8 +63,7 @@ class CliconnTable(Table):
             self.to_search(realname, SearchType.REAL),
             hostname,
             self.to_search(hostname, SearchType.HOST),
-            ip,
-            datetime.utcnow()
+            ip
         ]
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
