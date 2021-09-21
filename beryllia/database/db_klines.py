@@ -218,7 +218,7 @@ class KLineKillTable(Table):
 
         query = """
             UPDATE kline_kill
-            SET kline = $1
+            SET kline_id = $1
             WHERE id = $2
         """
         async with self.pool.acquire() as conn:
