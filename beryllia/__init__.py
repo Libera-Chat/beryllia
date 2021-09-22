@@ -114,7 +114,7 @@ class Server(BaseServer):
                 hostname = p_cliexit.group("host")
 
                 ip: Optional[Union[IPv4Address, IPv6Address]] = None
-                if not (ip_str := p_cliconn.group("ip")) == "0":
+                if not (ip_str := p_cliexit.group("ip")) == "0":
                     ip = ipaddress.ip_address(ip_str)
 
                 if nickname in self._wait_for_exit:
