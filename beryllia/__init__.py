@@ -134,8 +134,6 @@ class Server(BaseServer):
                 duration = p_klineadd.group("duration")
                 reason   = p_klineadd.group("reason")
 
-                username, hostname  = mask.split("@")
-
                 old_id = await self.database.kline.find(mask)
                 id     = await self.database.kline.add(
                     source, oper, mask, int(duration)*60, reason
