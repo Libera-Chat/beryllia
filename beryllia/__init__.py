@@ -276,7 +276,11 @@ class Server(BaseServer):
             db   = self.database
             now  = datetime.utcnow()
 
-            if   type == "ip":
+            if   type == "nick":
+                ids = await self.database.cliconn.find_by_nick(query)
+            elif type == "host":
+                ids = await self.database.cliconn.find_by_host(query)
+            elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
                     ids = await db.cliconn.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:

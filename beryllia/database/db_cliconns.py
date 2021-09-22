@@ -69,6 +69,32 @@ class CliconnTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
+    async def find_by_nick(self, nickname: str) -> List[int]:
+        query = """
+            SELECT id
+            FROM cliconn
+            WHERE search_nick LIKE $1
+            ORDER BY ts DESC
+        """
+        param = self.to_search(glob_to_sql(nickname), SearchType.NICK)
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, param)
+
+        return [row[0] for row in rows]
+
+    async def find_by_host(self, hostname: str) -> List[int]:
+        query = """
+            SELECT id
+            FROM cliconn
+            WHERE search_host LIKE $1
+            ORDER BY ts DESC
+        """
+        param = self.to_search(glob_to_sql(hostname), SearchType.HOST)
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, param)
+
+        return [row[0] for row in rows]
+
     async def find_by_ip(self,
             ip: Union[IPv4Address, IPv6Address]
             ) -> List[int]:
