@@ -6,6 +6,7 @@ from typing      import List, Optional, Union
 
 from .common     import Table
 from ..normalise import SearchType
+from ..util      import glob_to_sql
 
 @dataclass
 class DBCliconn(object):
