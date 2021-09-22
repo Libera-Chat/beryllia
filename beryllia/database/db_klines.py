@@ -167,27 +167,29 @@ class KLineKillTable(Table):
         else:
             return None
 
-    async def find_by_nick(self, search_nick: str) -> List[int]:
+    async def find_by_nick(self, nickname: str) -> List[int]:
         query = """
             SELECT id
             FROM kline_kill
             WHERE search_nick LIKE $1
             ORDER BY ts DESC
         """
+        param = self.to_search(glob_to_sql(nickname), SearchType.NICK)
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_to_sql(search_nick))
+            rows = await conn.fetch(query, param)
 
         return [row[0] for row in rows]
 
-    async def find_by_host(self, search_host: str) -> List[int]:
+    async def find_by_host(self, hostname: str) -> List[int]:
         query = """
             SELECT id
             FROM kline_kill
             WHERE search_host LIKE $1
             ORDER BY ts DESC
         """
+        param = self.to_search(glob_to_sql(hostname), SearchType.HOST)
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_to_sql(search_host))
+            rows = await conn.fetch(query, param)
 
         return [row[0] for row in rows]
 
