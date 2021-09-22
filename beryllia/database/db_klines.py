@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
+from ipaddress   import IPv4Network, IPv6Network
 from typing      import List, Optional, Union
 
 from .common     import Table
@@ -200,6 +201,36 @@ class KLineKillTable(Table):
             rows = await conn.fetch(query, ip)
 
         return [row[0] for row in rows]
+
+    async def find_by_cidr(self,
+            cidr: Union[IPv4Network, IPv6Network]
+            ) -> List[int]:
+
+        query = """
+            SELECT id
+            FROM kline_kill
+            WHERE ip << $1
+            ORDER BY ts DESC
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, cidr)
+        return [row[0] for row in rows]
+
+    async def find_by_ip_glob(self, glob: str) -> List[int]:
+        glob_t = (glob
+            .replace("*", "%") # one or more of any character
+            .replace("?", "_") # one of any character
+        )
+        query  = """
+            SELECT id
+            FROM kline_kill
+            WHERE TEXT(ip) LIKE $1
+            ORDER BY ts DESC
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, glob_t)
+        return [row[0] for row in rows]
+
 
     async def find_by_kline(self, kline_id: int) -> List[int]:
         query = """

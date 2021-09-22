@@ -214,25 +214,27 @@ class Server(BaseServer):
         if len(args) > 1:
             type, query, *_ = args
             type = type.lower()
+            db   = self.database
             now  = datetime.utcnow()
 
             if   type == "nick":
-                fold  = self.casefold(query)
-                kills = await self.database.kline_kill.find_by_nick(fold)
+                fold = self.casefold(query)
+                ids  = await self.database.kline_kill.find_by_nick(fold)
             elif type == "host":
-                host  = query.lower()
-                kills = await self.database.kline_kill.find_by_host(host)
+                host = query.lower()
+                ids  = await self.database.kline_kill.find_by_host(host)
             elif type == "ip":
-                try:
-                    addr = ipaddress.ip_address(query)
-                except ValueError:
-                    return [f"'{query}' isn't a valid IP"]
-                kills = await self.database.kline_kill.find_by_ip(addr)
+                if (ip := try_parse_ip(query)) is not None:
+                    ids = await db.kline_kill.find_by_ip(ip)
+                elif (cidr := try_parse_cidr(query)) is not None:
+                    ids = await db.kline_kill.find_by_cidr(cidr)
+                else:
+                    ids = await db.kline_kill.find_by_ip_glob(query)
             else:
                 return [f"unknown query type '{type}'"]
 
             outs: List[str] = []
-            for kill_id in kills[:3]:
+            for kill_id in ids[:3]:
                 kill   = await self.database.kline_kill.get(kill_id)
                 kline  = await self.database.kline.get(kill.kline_id)
                 remove = await self.database.kline_remove.get(
