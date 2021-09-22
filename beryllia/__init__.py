@@ -113,11 +113,9 @@ class Server(BaseServer):
                 username = p_cliexit.group("user")
                 hostname = p_cliexit.group("host")
 
-                ip: Optional[str] = p_cliexit.group("ip")
-                if ip == "0":
-                    ip = None
-                else:
-                    ip = ipaddress.ip_address(ip).compressed
+                ip: Optional[Union[IPv4Address, IPv6Address]] = None
+                if not (ip_str := p_cliconn.group("ip")) == "0":
+                    ip = ipaddress.ip_address(ip_str)
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)
