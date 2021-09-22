@@ -255,7 +255,7 @@ class Server(BaseServer):
                     remove_s = "\x0303expired\x03"
                 else:
                     ts_left  = pretty_delta(kline.expire-now)
-                    remove_s = "\x0304{ts_left} remaining\x03"
+                    remove_s = f"\x0304{ts_left} remaining\x03"
 
                 outs.append(
                     "  K-Line:"
