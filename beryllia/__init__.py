@@ -16,6 +16,7 @@ from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
 from .util      import oper_up, pretty_delta, get_statsp
+from .util      import try_parse_cidr, try_parse_ip
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ \S+ \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
@@ -276,15 +277,12 @@ class Server(BaseServer):
             now  = datetime.utcnow()
 
             if   type == "ip":
-                try:
-                    ip  = ipaddress.ip_address(query)
+                if (ip := try_parse_ip(query)) is not None:
                     ids = await db.cliconn.find_by_ip(ip)
-                except ValueError:
-                    try:
-                        cidr = ipaddress.ip_network(query, strict=False)
-                        ids  = await db.cliconn.find_by_cidr(cidr)
-                    except ValueError:
-                        ids  = await db.cliconn.find_by_ip_glob(query)
+                elif (cidr := try_parse_cidr(query)) is not None:
+                    ids  = await db.cliconn.find_by_cidr(cidr)
+                else:
+                    ids  = await db.cliconn.find_by_ip_glob(query)
             else:
                 return [f"unknown query type '{type}'"]
 

@@ -1,6 +1,9 @@
 import re, traceback
 from datetime  import timedelta
-from typing    import List, Optional, Tuple
+from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_network, IPv4Network, IPv6Network
+
+from typing    import List, Optional, Tuple, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -125,3 +128,22 @@ async def get_statsp(server: Server) -> List[Tuple[str, str]]:
                 opers.append((oper, mask))
 
     return opers
+
+def try_parse_ip(
+        ip: str
+        ) -> Optional[Union[IPv4Address, IPv6Address]]:
+
+    try:
+        return ip_address(ip)
+    except ValueError:
+        return None
+
+def try_parse_cidr(
+        cidr: str
+        ) -> Optional[Union[IPv4Network, IPv6Network]]:
+
+    try:
+        return ip_network(cidr)
+    except ValueError:
+        return None
+
