@@ -97,10 +97,6 @@ class CliconnTable(Table):
         return [row[0] for row in rows]
 
     async def find_by_ip_glob(self, glob: str) -> List[int]:
-        glob_t = (glob
-            .replace("*", "%") # one or more of any character
-            .replace("?", "_") # one of any character
-        )
         query  = """
             SELECT id
             FROM cliconn
@@ -108,5 +104,5 @@ class CliconnTable(Table):
             ORDER BY ts DESC
         """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_t)
+            rows = await conn.fetch(query, glob_to_sql(glob))
         return [row[0] for row in rows]

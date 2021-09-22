@@ -147,3 +147,8 @@ def try_parse_cidr(
     except ValueError:
         return None
 
+def glob_to_sql(glob: str) -> str:
+    return (glob
+        .replace("*", "%")
+        .replace("?", "_")
+    )

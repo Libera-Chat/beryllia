@@ -6,6 +6,7 @@ from typing      import List, Optional, Union
 
 from .common     import Table
 from ..normalise import SearchType
+from ..util      import glob_to_sql
 
 @dataclass
 class DBKLine(object):
@@ -170,11 +171,11 @@ class KLineKillTable(Table):
         query = """
             SELECT id
             FROM kline_kill
-            WHERE search_nick = $1
+            WHERE search_nick LIKE $1
             ORDER BY ts DESC
         """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, search_nick)
+            rows = await conn.fetch(query, glob_to_sql(search_nick))
 
         return [row[0] for row in rows]
 
@@ -182,15 +183,18 @@ class KLineKillTable(Table):
         query = """
             SELECT id
             FROM kline_kill
-            WHERE search_host = $1
+            WHERE search_host LIKE $1
             ORDER BY ts DESC
         """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, search_host)
+            rows = await conn.fetch(query, glob_to_sql(search_host))
 
         return [row[0] for row in rows]
 
-    async def find_by_ip(self, ip: str) -> List[int]:
+    async def find_by_ip(self,
+            ip: Union[IPv4Address, IPv6Address]
+            ) -> List[int]:
+
         query = """
             SELECT id
             FROM kline_kill
@@ -217,10 +221,6 @@ class KLineKillTable(Table):
         return [row[0] for row in rows]
 
     async def find_by_ip_glob(self, glob: str) -> List[int]:
-        glob_t = (glob
-            .replace("*", "%") # one or more of any character
-            .replace("?", "_") # one of any character
-        )
         query  = """
             SELECT id
             FROM kline_kill
@@ -228,7 +228,7 @@ class KLineKillTable(Table):
             ORDER BY ts DESC
         """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_t)
+            rows = await conn.fetch(query, glob_to_sql(glob))
         return [row[0] for row in rows]
 
 
