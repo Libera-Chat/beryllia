@@ -284,9 +284,9 @@ class Server(BaseServer):
                 if (ip := try_parse_ip(query)) is not None:
                     ids = await db.cliconn.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    ids  = await db.cliconn.find_by_cidr(cidr)
+                    ids = await db.cliconn.find_by_cidr(cidr)
                 else:
-                    ids  = await db.cliconn.find_by_ip_glob(query)
+                    ids = await db.cliconn.find_by_ip_glob(query)
             else:
                 return [f"unknown query type '{type}'"]
 
