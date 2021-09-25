@@ -231,21 +231,23 @@ class Server(BaseServer):
             else:
                 return [f"unknown query type '{type}'"]
 
+            klines: Dict[int, Set[str]] = {}
+            for kill_id in ids:
+                kill = await self.database.kline_kill.get(kill_id)
+                mask = f"{kill.nickname}!{kill.username}@{kill.hostname}"
+
+                if kill.kline_id not in klines:
+                    klines[kill.kline_id] = set()
+                klines[kill.kline_id].add(mask)
+
             outs: List[str] = []
-            for kill_id in ids[:3]:
-                kill   = await self.database.kline_kill.get(kill_id)
-                kline  = await self.database.kline.get(kill.kline_id)
+            for kline_id, masks in sorted(klines.items(), reverse=True):
+                kline  = await self.database.kline.get(kline_id)
                 remove = await self.database.kline_remove.get(
                     kill.kline_id
                 )
 
-                outs.append(
-                    f"{kill.nickname}!{kill.username}@{kill.hostname}"
-                    f" killed at {kill.ts.isoformat()}"
-                )
-
                 kts_human = pretty_delta(now-kline.ts)
-
                 if remove is not None:
                     remover  = remove.oper or "unknown"
                     remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
@@ -256,14 +258,18 @@ class Server(BaseServer):
                     remove_s = f"\x0304{ts_left} remaining\x03"
 
                 outs.append(
-                    "  K-Line:"
-                    f" {kline.mask}"
+                    f"{kline.mask}"
                     f" \x02{kts_human} ago\x02"
                     f" by \x02{kline.oper}\x02"
                     f" for {kline.duration//60} mins"
                     f" ({remove_s})"
                     f" {kline.reason}"
                 )
+                outs.append(
+                    "  affected: " +
+                    ", ".join(sorted(masks))
+                )
+
             return outs or ["no results"]
         else:
             return ["please provide a type and query"]
