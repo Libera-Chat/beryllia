@@ -153,86 +153,50 @@ class KLineKillTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
-    async def get(self, id: int) -> Optional[DBKLineKill]:
-        query = """
+    async def _get(self,
+            where: str,
+            args:  List[str]
+            ) -> List[DBKLineKill]:
+        query = f"""
             SELECT kline_id, nickname, username, hostname, ip, ts
             FROM kline_kill
-            WHERE id = $1
+            {where}
+            ORDER BY ts DESC
         """
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(query, id)
+            rows = await conn.fetch(query, *args)
 
-        if row is not None:
-            return DBKLineKill(*row)
+        return [DBKLineKill(*row) for row in rows]
+
+    async def get(self, id: int) -> Optional[DBKLineKill]:
+        kills = await self._get("WHERE id = $1", id)
+        if kills:
+            return kills[0]
         else:
             return None
 
-    async def find_by_nick(self, nickname: str) -> List[int]:
-        query = """
-            SELECT id
-            FROM kline_kill
-            WHERE search_nick LIKE $1
-            ORDER BY ts DESC
-        """
+    async def find_by_nick(self, nickname: str) -> List[DBKLineKill]:
         param = self.to_search(glob_to_sql(nickname), SearchType.NICK)
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
+        return await self._get("WHERE search_nick LIKE $1", param)
 
-        return [row[0] for row in rows]
-
-    async def find_by_host(self, hostname: str) -> List[int]:
-        query = """
-            SELECT id
-            FROM kline_kill
-            WHERE search_host LIKE $1
-            ORDER BY ts DESC
-        """
+    async def find_by_host(self, hostname: str) -> List[DBKLineKill]:
         param = self.to_search(glob_to_sql(hostname), SearchType.HOST)
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
-
-        return [row[0] for row in rows]
+        return await self._get("WHERE search_host LIKE $1", param)
 
     async def find_by_ip(self,
             ip: Union[IPv4Address, IPv6Address]
-            ) -> List[int]:
+            ) -> List[DBKLineKill]:
 
-        query = """
-            SELECT id
-            FROM kline_kill
-            WHERE ip = $1
-            ORDER BY ts DESC
-        """
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, ip)
-
-        return [row[0] for row in rows]
+        return await self._get("WHERE ip = $1", ip)
 
     async def find_by_cidr(self,
             cidr: Union[IPv4Network, IPv6Network]
-            ) -> List[int]:
+            ) -> List[DBKLineKill]:
 
-        query = """
-            SELECT id
-            FROM kline_kill
-            WHERE ip << $1
-            ORDER BY ts DESC
-        """
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, cidr)
-        return [row[0] for row in rows]
+        return await self._get("WHERE ip << $1", cidr)
 
-    async def find_by_ip_glob(self, glob: str) -> List[int]:
-        query  = """
-            SELECT id
-            FROM kline_kill
-            WHERE TEXT(ip) LIKE $1
-            ORDER BY ts DESC
-        """
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_to_sql(glob))
-        return [row[0] for row in rows]
-
+    async def find_by_ip_glob(self, glob: str) -> List[DBKLineKill]:
+        return await self._get("WHERE TEXT(ip) LIKE $1", glob_to_sql(glob))
 
     async def find_by_kline(self, kline_id: int) -> List[int]:
         query = """

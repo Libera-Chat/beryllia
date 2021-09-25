@@ -223,17 +223,16 @@ class Server(BaseServer):
                 ids = await self.database.kline_kill.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    ids = await db.kline_kill.find_by_ip(ip)
+                    kills = await db.kline_kill.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    ids = await db.kline_kill.find_by_cidr(cidr)
+                    kills = await db.kline_kill.find_by_cidr(cidr)
                 else:
-                    ids = await db.kline_kill.find_by_ip_glob(query)
+                    kills = await db.kline_kill.find_by_ip_glob(query)
             else:
                 return [f"unknown query type '{type}'"]
 
             klines: Dict[int, Set[str]] = {}
-            for kill_id in ids:
-                kill = await self.database.kline_kill.get(kill_id)
+            for kill in kills:
                 mask = f"{kill.nickname}!{kill.username}@{kill.hostname}"
 
                 if kill.kline_id not in klines:
