@@ -278,6 +278,8 @@ class Server(BaseServer):
 
             if   type == "nick":
                 ids = await self.database.cliconn.find_by_nick(query)
+            elif type == "user":
+                ids = await self.database.cliconn.find_by_user(query)
             elif type == "host":
                 ids = await self.database.cliconn.find_by_host(query)
             elif type == "ip":

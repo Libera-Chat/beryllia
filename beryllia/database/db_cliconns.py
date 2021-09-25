@@ -82,6 +82,19 @@ class CliconnTable(Table):
 
         return [row[0] for row in rows]
 
+    async def find_by_user(self, username: str) -> List[int]:
+        query = """
+            SELECT id
+            FROM cliconn
+            WHERE search_user LIKE $1
+            ORDER BY ts DESC
+        """
+        param = self.to_search(glob_to_sql(username), SearchType.USER)
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, param)
+
+        return [row[0] for row in rows]
+
     async def find_by_host(self, hostname: str) -> List[int]:
         query = """
             SELECT id
