@@ -155,8 +155,9 @@ class KLineKillTable(Table):
 
     async def _get(self,
             where: str,
-            args:  List[str]
+            *args: str
             ) -> List[DBKLineKill]:
+
         query = f"""
             SELECT kline_id, nickname, username, hostname, ip, ts
             FROM kline_kill
