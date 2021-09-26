@@ -218,9 +218,9 @@ class Server(BaseServer):
             now  = datetime.utcnow()
 
             if   type == "nick":
-                ids = await self.database.kline_kill.find_by_nick(query)
+                kills = await self.database.kline_kill.find_by_nick(query)
             elif type == "host":
-                ids = await self.database.kline_kill.find_by_host(query)
+                kills = await self.database.kline_kill.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
                     kills = await db.kline_kill.find_by_ip(ip)
