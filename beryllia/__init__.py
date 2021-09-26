@@ -257,16 +257,17 @@ class Server(BaseServer):
                     remove_s = f"\x0304{ts_left} remaining\x03"
 
                 outs.append(
-                    f"{kline.mask}"
+                    "affected: " +
+                    ", ".join(sorted(masks))
+                )
+                outs.append(
+                    "  K-Line:"
+                    f" {kline.mask}"
                     f" \x02{kts_human} ago\x02"
                     f" by \x02{kline.oper}\x02"
                     f" for {kline.duration//60} mins"
                     f" ({remove_s})"
                     f" {kline.reason}"
-                )
-                outs.append(
-                    "  affected: " +
-                    ", ".join(sorted(masks))
                 )
 
             return outs or ["no results"]
