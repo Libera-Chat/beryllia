@@ -143,7 +143,7 @@ def try_parse_cidr(
         ) -> Optional[Union[IPv4Network, IPv6Network]]:
 
     try:
-        return ip_network(cidr)
+        return ip_network(cidr, strict=False)
     except ValueError:
         return None
 
