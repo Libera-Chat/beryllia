@@ -217,17 +217,20 @@ class Server(BaseServer):
             db   = self.database
             now  = datetime.utcnow()
 
+            # allow override in a command argument?
+            limit = 3
+
             if   type == "nick":
-                kills = await self.database.kline_kill.find_by_nick(query)
+                kills = await db.kline_kill.find_by_nick(query, limit)
             elif type == "host":
-                kills = await self.database.kline_kill.find_by_host(query)
+                kills = await db.kline_kill.find_by_host(query, limit)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    kills = await db.kline_kill.find_by_ip(ip)
+                    kills = await db.kline_kill.find_by_ip(ip, limit)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    kills = await db.kline_kill.find_by_cidr(cidr)
+                    kills = await db.kline_kill.find_by_cidr(cidr, limit)
                 else:
-                    kills = await db.kline_kill.find_by_ip_glob(query)
+                    kills = await db.kline_kill.find_by_ip_glob(query, limit)
             else:
                 return [f"unknown query type '{type}'"]
 
