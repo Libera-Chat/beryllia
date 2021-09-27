@@ -221,16 +221,16 @@ class Server(BaseServer):
             limit = 3
 
             if   type == "nick":
-                kills = await db.kline_kill.find_by_nick(query, limit)
+                kills = await db.kline_kill.find_by_nick(query)
             elif type == "host":
-                kills = await db.kline_kill.find_by_host(query, limit)
+                kills = await db.kline_kill.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    kills = await db.kline_kill.find_by_ip(ip, limit)
+                    kills = await db.kline_kill.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    kills = await db.kline_kill.find_by_cidr(cidr, limit)
+                    kills = await db.kline_kill.find_by_cidr(cidr)
                 elif looks_like_glob(query):
-                    kills = await db.kline_kill.find_by_ip_glob(query, limit)
+                    kills = await db.kline_kill.find_by_ip_glob(query)
                 else:
                     return [f"'{query}' does not look like an IP address"]
             else:
@@ -245,7 +245,8 @@ class Server(BaseServer):
                 klines[kill.kline_id].add(mask)
 
             outs: List[str] = []
-            for kline_id, masks in sorted(klines.items(), reverse=True):
+            shown_klines = sorted(klines.items(), reverse=True)[:limit]
+            for kline_id, masks in shown_klines:
                 kline  = await self.database.kline.get(kline_id)
                 remove = await self.database.kline_remove.get(
                     kill.kline_id
