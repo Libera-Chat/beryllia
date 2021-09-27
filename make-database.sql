@@ -75,5 +75,6 @@ CREATE INDEX statsp_oper            ON statsp(oper);
 CREATE INDEX kline_expire           ON kline(expire);
 CREATE INDEX kline_kill_kline_id    ON kline_kill(kline_id);
 CREATE INDEX kline_remove_kline_id  ON kline_remove(kline_id);
+CREATE INDEX cliconn_ts             ON cliconn(ts);
 
 COMMIT;
