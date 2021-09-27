@@ -152,3 +152,6 @@ def glob_to_sql(glob: str) -> str:
         .replace("*", "%")
         .replace("?", "_")
     )
+
+def looks_like_glob(s: str) -> bool:
+    return bool(set(s) & set("?*"))

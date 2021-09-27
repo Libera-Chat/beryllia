@@ -16,7 +16,7 @@ from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
 from .util      import oper_up, pretty_delta, get_statsp
-from .util      import try_parse_cidr, try_parse_ip
+from .util      import try_parse_cidr, try_parse_ip, looks_like_glob
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ \S+ \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
@@ -229,8 +229,10 @@ class Server(BaseServer):
                     kills = await db.kline_kill.find_by_ip(ip, limit)
                 elif (cidr := try_parse_cidr(query)) is not None:
                     kills = await db.kline_kill.find_by_cidr(cidr, limit)
-                else:
+                elif looks_like_glob(query):
                     kills = await db.kline_kill.find_by_ip_glob(query, limit)
+                else:
+                    return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
@@ -296,8 +298,10 @@ class Server(BaseServer):
                     ids = await db.cliconn.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
                     ids = await db.cliconn.find_by_cidr(cidr)
-                else:
+                elif looks_like_glob(query):
                     ids = await db.cliconn.find_by_ip_glob(query)
+                else:
+                    return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
