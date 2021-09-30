@@ -166,10 +166,7 @@ def glob_to_sql(glob: str) -> str:
     to_escape = find_unescaped(glob, to_find)
     glob_l    = list(glob)
 
-    # iter backwards because we're replacing single characters with two
-    # characters (to escape sql wildcards) and that'll shift indexes above
-    # where we're replacing
-    for index in reversed(to_escape):
+    for index in to_escape:
         char = glob_l[index]
         # escape sql wildcard characters
         if char in WILDCARDS_SQL:
