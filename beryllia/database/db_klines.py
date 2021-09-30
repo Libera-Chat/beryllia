@@ -188,7 +188,7 @@ class KLineKillTable(Table):
             limit:    Optional[int]=None
             ) -> List[DBKLineKill]:
 
-        param = self.to_search(glob_to_sql(nickname), SearchType.NICK)
+        param = glob_to_sql(self.to_search(nickname, SearchType.NICK))
         return await self._get("WHERE search_nick LIKE $1", limit, param)
 
     async def find_by_host(self,
@@ -196,7 +196,7 @@ class KLineKillTable(Table):
             limit:    Optional[int]=None
             ) -> List[DBKLineKill]:
 
-        param = self.to_search(glob_to_sql(hostname), SearchType.HOST)
+        param = glob_to_sql(self.to_search(hostname, SearchType.HOST))
         return await self._get("WHERE search_host LIKE $1", limit, param)
 
     async def find_by_ip(self,

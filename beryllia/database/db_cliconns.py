@@ -76,7 +76,7 @@ class CliconnTable(Table):
             WHERE search_nick LIKE $1
             ORDER BY ts DESC
         """
-        param = self.to_search(glob_to_sql(nickname), SearchType.NICK)
+        param = glob_to_sql(self.to_search(nickname, SearchType.NICK))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
@@ -89,7 +89,7 @@ class CliconnTable(Table):
             WHERE search_user LIKE $1
             ORDER BY ts DESC
         """
-        param = self.to_search(glob_to_sql(username), SearchType.USER)
+        param = glob_to_sql(self.to_search(username, SearchType.USER))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
@@ -102,7 +102,7 @@ class CliconnTable(Table):
             WHERE search_host LIKE $1
             ORDER BY ts DESC
         """
-        param = self.to_search(glob_to_sql(hostname), SearchType.HOST)
+        param = glob_to_sql(self.to_search(hostname, SearchType.HOST))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
