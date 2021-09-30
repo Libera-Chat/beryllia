@@ -3,7 +3,7 @@ from datetime  import timedelta
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
 
-from typing    import List, Optional, Tuple, Union
+from typing    import List, Optional, Set, Tuple, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -147,11 +147,38 @@ def try_parse_cidr(
     except ValueError:
         return None
 
+def find_unescaped(s: str, c: Set[str]) -> List[int]:
+    indexes: List[int] = []
+    i = 0
+    while i < len(s):
+        c2 = s[i]
+        if c2 == "\\":
+            i += 1
+        elif c2 in c:
+            indexes.append(i)
+        i += 1
+    return indexes
+
+WILDCARDS_GLOB = {"?": "_", "*": "%"}
+WILDCARDS_SQL  = set("_%")
 def glob_to_sql(glob: str) -> str:
-    return (glob
-        .replace("*", "%")
-        .replace("?", "_")
-    )
+    to_find   = WILDCARDS_SQL | set(WILDCARDS_GLOB.keys())
+    to_escape = find_unescaped(glob, to_find)
+    glob_l    = list(glob)
+
+    # iter backwards because we're replacing single characters with two
+    # characters (to escape sql wildcards) and that'll shift indexes above
+    # where we're replacing
+    for index in reversed(to_escape):
+        char = glob_l[index]
+        # escape sql wildcard characters
+        if char in WILDCARDS_SQL:
+            glob_l[index] = f"\\{char}"
+        # switch glob wildcards to sql wildcards
+        elif char in WILDCARDS_GLOB:
+            glob_l[index] = WILDCARDS_GLOB[char]
+
+    return "".join(glob_l)
 
 def looks_like_glob(s: str) -> bool:
     return bool(set(s) & set("?*"))
