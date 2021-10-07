@@ -210,15 +210,17 @@ class Server(BaseServer):
             return ["unknown command"]
 
     async def cmd_kcheck(self, nick: str, sargs: str):
-        args = sargs.split(None, 2)
+        args = sargs.split(None, 3)
         if len(args) > 1:
-            type, query, *_ = args
+            type, query, *args = args
             type = type.lower()
             db   = self.database
             now  = datetime.utcnow()
 
             # allow override in a command argument?
             limit = 3
+            if args and (limit_s := args[0]).isdigit():
+                limit = int(limit_s)
 
             if   type == "nick":
                 kills = await db.kline_kill.find_by_nick(query)
