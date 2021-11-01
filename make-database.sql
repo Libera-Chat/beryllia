@@ -17,6 +17,10 @@ CREATE TABLE kline (
     ts       TIMESTAMP    NOT NULL,
     expire   TIMESTAMP    NOT NULL
 );
+-- for retention period bulk deletion
+CREATE INDEX kline_expire ON kline(expire);
+-- for database.kline.find()
+CREATE INDEX kline_mask   ON kline(mask);
 
 CREATE TABLE kline_remove (
     kline_id INTEGER     NOT NULL  PRIMARY KEY  REFERENCES kline (id)  ON DELETE CASCADE,
@@ -24,6 +28,8 @@ CREATE TABLE kline_remove (
     oper     VARCHAR(16),
     ts       TIMESTAMP   NOT NULL
 );
+-- for joining with kline(id)
+CREATE INDEX kline_remove_kline_id ON kline_remove(kline_id);
 
 CREATE TABLE kline_kill (
     id          SERIAL PRIMARY KEY,
@@ -37,6 +43,13 @@ CREATE TABLE kline_kill (
     ip          INET,
     ts          TIMESTAMP   NOT NULL
 );
+-- for joining with kline(id)
+CREATE INDEX kline_kill_kline_id    ON kline_kill(kline_id);
+-- for `!kcheck` searches
+CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
+CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
+CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
+CREATE INDEX kline_kill_ip          ON kline_kill(ip);
 
 CREATE TABLE cliconn (
     id          SERIAL PRIMARY KEY,
@@ -51,6 +64,13 @@ CREATE TABLE cliconn (
     ip          INET,
     ts          TIMESTAMP   NOT NULL
 );
+-- for retention period bulk deletion
+CREATE INDEX cliconn_ts          ON cliconn(ts);
+-- for `!cliconn` searches
+CREATE INDEX cliconn_search_nick ON cliconn(search_nick);
+CREATE INDEX cliconn_search_user ON cliconn(search_user);
+CREATE INDEX cliconn_search_host ON cliconn(search_host);
+CREATE INDEX cliconn_ip          ON cliconn(ip);
 
 CREATE TABLE statsp (
     oper VARCHAR(16) NOT NULL,
@@ -58,24 +78,6 @@ CREATE TABLE statsp (
     ts   TIMESTAMP   NOT NULL,
     PRIMARY KEY (mask, ts)
 );
-
-
--- to speed up searches
-CREATE INDEX kline_mask             ON kline(mask);
-CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
-CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
-CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
-CREATE INDEX kline_kill_ip          ON kline_kill(ip);
-CREATE INDEX cliconn_search_nick    ON cliconn(search_nick);
-CREATE INDEX cliconn_search_user    ON cliconn(search_user);
-CREATE INDEX cliconn_search_host    ON cliconn(search_host);
-CREATE INDEX cliconn_ip             ON cliconn(ip);
-CREATE INDEX statsp_ts              ON statsp(ts);
-
--- to speed up bulk/cascaded deletions of klines past retention period
-CREATE INDEX kline_expire           ON kline(expire);
-CREATE INDEX kline_kill_kline_id    ON kline_kill(kline_id);
-CREATE INDEX kline_remove_kline_id  ON kline_remove(kline_id);
-CREATE INDEX cliconn_ts             ON cliconn(ts);
+CREATE INDEX statsp_ts ON statsp(ts);
 
 COMMIT;
