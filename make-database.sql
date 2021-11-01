@@ -61,6 +61,7 @@ CREATE TABLE statsp (
 
 
 -- to speed up searches
+CREATE INDEX kline_mask             ON kline(mask);
 CREATE INDEX kline_kill_search_nick ON kline_kill(search_nick);
 CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
 CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
