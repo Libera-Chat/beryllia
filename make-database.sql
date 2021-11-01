@@ -70,7 +70,7 @@ CREATE INDEX cliconn_search_nick    ON cliconn(search_nick);
 CREATE INDEX cliconn_search_user    ON cliconn(search_user);
 CREATE INDEX cliconn_search_host    ON cliconn(search_host);
 CREATE INDEX cliconn_ip             ON cliconn(ip);
-CREATE INDEX statsp_oper            ON statsp(oper);
+CREATE INDEX statsp_ts              ON statsp(ts);
 
 -- to speed up bulk/cascaded deletions of klines past retention period
 CREATE INDEX kline_expire           ON kline(expire);
