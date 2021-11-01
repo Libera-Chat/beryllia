@@ -2,15 +2,15 @@
 -- 10  is username length
 -- 50  is realname length
 -- 64  is hostname length
--- 90  is mask length
+-- 92  is mask length
 -- 260 is reason length
 
 BEGIN;
 
 CREATE TABLE kline (
     id       SERIAL PRIMARY KEY,
-    mask     VARCHAR(90)  NOT NULL,
-    source   VARCHAR(90)  NOT NULL,
+    mask     VARCHAR(92)  NOT NULL,
+    source   VARCHAR(92)  NOT NULL,
     oper     VARCHAR(16)  NOT NULL,
     duration INT          NOT NULL,
     reason   VARCHAR(260) NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE kline (
 
 CREATE TABLE kline_remove (
     kline_id INTEGER     NOT NULL  PRIMARY KEY  REFERENCES kline (id)  ON DELETE CASCADE,
-    source   VARCHAR(90),
+    source   VARCHAR(92),
     oper     VARCHAR(16),
     ts       TIMESTAMP   NOT NULL
 );
@@ -54,7 +54,7 @@ CREATE TABLE cliconn (
 
 CREATE TABLE statsp (
     oper VARCHAR(16) NOT NULL,
-    mask VARCHAR(90) NOT NULL,
+    mask VARCHAR(92) NOT NULL,
     ts   TIMESTAMP   NOT NULL,
     PRIMARY KEY (mask, ts)
 );
