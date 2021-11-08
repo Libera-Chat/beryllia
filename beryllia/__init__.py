@@ -250,9 +250,7 @@ class Server(BaseServer):
             shown_klines = sorted(klines.items(), reverse=True)[:limit]
             for kline_id, masks in shown_klines:
                 kline  = await self.database.kline.get(kline_id)
-                remove = await self.database.kline_remove.get(
-                    kill.kline_id
-                )
+                remove = await self.database.kline_remove.get(kline_id)
 
                 kts_human = pretty_delta(now-kline.ts)
                 if remove is not None:
