@@ -267,7 +267,7 @@ class Server(BaseServer):
                     ", ".join(sorted(masks))
                 )
                 outs.append(
-                    "  K-Line:"
+                    "  \x02K-Line\x02:"
                     f" {kline.mask}"
                     f" \x02{kts_human} ago\x02"
                     f" by \x02{kline.oper}\x02"
