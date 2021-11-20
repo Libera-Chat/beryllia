@@ -1,7 +1,10 @@
+from collections import deque
 from dataclasses import dataclass
+from typing      import Deque, Union
 
 from asyncpg     import Connection, Pool
 from ..normalise import SearchNormaliser, SearchType
+from ..util      import CompositeString, CompositeStringText
 
 @dataclass
 class Table(object):
@@ -9,8 +12,13 @@ class Table(object):
     normaliser: SearchNormaliser
 
     def to_search(self,
-            input: str,
-            type:  SearchType
-            ) -> str:
+            input_: Union[str, CompositeString],
+            type:   SearchType
+            ) -> CompositeString:
+
+        if isinstance(input_, str):
+            input = CompositeString([CompositeStringText(input_)])
+        else:
+            input = input_
 
         return self.normaliser.normalise(input, type)

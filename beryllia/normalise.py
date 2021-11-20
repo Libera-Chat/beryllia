@@ -1,6 +1,10 @@
 from enum      import Enum
+from typing    import Deque
 
 from ircstates import casefold
+
+from .util     import (CompositeString, CompositeStringType,
+    CompositeStringText)
 
 class SearchType(Enum):
     NICK = 1
@@ -10,18 +14,25 @@ class SearchType(Enum):
 
 class SearchNormaliser(object):
     def normalise(self,
-            input: str,
+            input: CompositeString,
             type:  SearchType
-            ) -> str:
+            ) -> CompositeString:
         return input
 
 class RFC1459SearchNormaliser(SearchNormaliser):
     def normalise(self,
-            input: str,
+            input: CompositeString,
             type:  SearchType
-            ) -> str:
+            ) -> CompositeString:
 
-        if type in {SearchType.NICK, SearchType.USER}:
-            return casefold("rfc1459", input)
-        else:
-            return input.lower()
+        out = CompositeString()
+        for part in input:
+            if part.type == CompositeStringType.TEXT:
+                if type in {SearchType.NICK, SearchType.USER}:
+                    text = casefold("rfc1459", part.text)
+                else:
+                    text = part.text.lower()
+                out.append(CompositeStringText(text))
+            else:
+                out.append(part)
+        return out

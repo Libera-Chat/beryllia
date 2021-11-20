@@ -6,7 +6,7 @@ from typing      import List, Optional, Union
 
 from .common     import Table
 from ..normalise import SearchType
-from ..util      import glob_to_sql
+from ..util      import glob_to_sql, lex_glob_pattern
 
 @dataclass
 class DBCliconn(object):
@@ -57,13 +57,13 @@ class CliconnTable(Table):
         """
         args = [
             nickname,
-            self.to_search(nickname, SearchType.NICK),
+            str(self.to_search(nickname, SearchType.NICK)),
             username,
-            self.to_search(username, SearchType.USER),
+            str(self.to_search(username, SearchType.USER)),
             realname,
-            self.to_search(realname, SearchType.REAL),
+            str(self.to_search(realname, SearchType.REAL)),
             hostname,
-            self.to_search(hostname, SearchType.HOST),
+            str(self.to_search(hostname, SearchType.HOST)),
             ip
         ]
         async with self.pool.acquire() as conn:
@@ -76,7 +76,8 @@ class CliconnTable(Table):
             WHERE search_nick LIKE $1
             ORDER BY ts DESC
         """
-        param = glob_to_sql(self.to_search(nickname, SearchType.NICK))
+        pattern = glob_to_sql(lex_glob_pattern(nickname))
+        param   = str(self.to_search(pattern, SearchType.NICK))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
@@ -89,7 +90,8 @@ class CliconnTable(Table):
             WHERE search_user LIKE $1
             ORDER BY ts DESC
         """
-        param = glob_to_sql(self.to_search(username, SearchType.USER))
+        pattern = glob_to_sql(lex_glob_pattern(username))
+        param   = str(self.to_search(pattern, SearchType.USER))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
@@ -102,7 +104,8 @@ class CliconnTable(Table):
             WHERE search_host LIKE $1
             ORDER BY ts DESC
         """
-        param = glob_to_sql(self.to_search(hostname, SearchType.HOST))
+        pattern = glob_to_sql(lex_glob_pattern(hostname))
+        param   = str(self.to_search(pattern, SearchType.HOST))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
 
@@ -143,6 +146,8 @@ class CliconnTable(Table):
             WHERE TEXT(ip) LIKE $1
             ORDER BY ts DESC
         """
+        pattern = glob_to_sql(lex_glob_pattern(hostname))
+        param   = str(self.to_search(pattern, SearchType.HOST))
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, glob_to_sql(glob))
+            rows = await conn.fetch(query, param)
         return [row[0] for row in rows]

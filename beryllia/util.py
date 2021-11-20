@@ -1,9 +1,10 @@
 import re, traceback
 from datetime  import timedelta
+from enum      import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
 
-from typing    import List, Optional, Set, Tuple, Union
+from typing    import Deque, List, Optional, Set, Tuple, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -147,6 +148,32 @@ def try_parse_cidr(
     except ValueError:
         return None
 
+class CompositeStringType(Enum):
+    TEXT   = 1
+    SYMBOL = 2
+
+
+class CompositeStringPart:
+    def __init__(self,
+            text: str,
+            type: CompositeStringType):
+        self.text = text
+        self.type = type
+    def __repr__(self) -> str:
+        return f"{self.type.name.title()}({self.text})"
+class CompositeStringText(CompositeStringPart):
+    def __init__(self, text: str):
+        super().__init__(text, CompositeStringType.TEXT)
+class CompositeStringSymbol(CompositeStringPart):
+    def __init__(self, text: str):
+        super().__init__(text, CompositeStringType.SYMBOL)
+
+class CompositeString(Deque[CompositeStringPart]):
+    def __str__(self) -> str:
+        return "".join(p.text for p in self)
+
+WILDCARDS_GLOB = {"?": "_", "*": "%"}
+WILDCARDS_SQL  = set("_%")
 def find_unescaped(s: str, c: Set[str]) -> List[int]:
     indexes: List[int] = []
     i = 0
@@ -159,23 +186,32 @@ def find_unescaped(s: str, c: Set[str]) -> List[int]:
         i += 1
     return indexes
 
-WILDCARDS_GLOB = {"?": "_", "*": "%"}
-WILDCARDS_SQL  = set("_%")
-def glob_to_sql(glob: str) -> str:
-    to_find   = WILDCARDS_SQL | set(WILDCARDS_GLOB.keys())
-    to_escape = find_unescaped(glob, to_find)
-    glob_l    = list(glob)
+def lex_glob_pattern(glob: str) -> CompositeString:
+    out     = CompositeString()
+    to_find = WILDCARDS_SQL | set(WILDCARDS_GLOB.keys())
+    special = set(find_unescaped(glob, set(WILDCARDS_GLOB.keys())))
 
-    for index in to_escape:
-        char = glob_l[index]
-        # escape sql wildcard characters
-        if char in WILDCARDS_SQL:
-            glob_l[index] = f"\\{char}"
-        # switch glob wildcards to sql wildcards
-        elif char in WILDCARDS_GLOB:
-            glob_l[index] = WILDCARDS_GLOB[char]
+    for index, char in enumerate(glob):
+        if index in special:
+            out.append(CompositeStringSymbol(char))
+        else:
+            out.append(CompositeStringText(char))
 
-    return "".join(glob_l)
+    return out
+
+def glob_to_sql(glob: CompositeString) -> CompositeString:
+    out = CompositeString()
+
+    for part in glob:
+        if part.type == CompositeStringType.SYMBOL:
+            sym = WILDCARDS_GLOB[part.text]
+            out.append(CompositeStringSymbol(sym))
+        elif part.text in WILDCARDS_SQL:
+            out.append(CompositeStringSymbol(f"\\{part.text}"))
+        else:
+            out.append(part)
+
+    return out
 
 def looks_like_glob(s: str) -> bool:
     return bool(set(s) & set("?*"))
