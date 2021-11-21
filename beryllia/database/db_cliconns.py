@@ -35,7 +35,7 @@ class CliconnTable(Table):
             realname: str,
             hostname: str,
             account:  Optional[str],
-            ip:       Union[IPv4Address, IPv6Address]
+            ip:       Optional[Union[IPv4Address, IPv6Address]]
             ):
 
         search_acc: Optional[str] = None
