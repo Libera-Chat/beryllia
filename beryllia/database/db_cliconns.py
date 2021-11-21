@@ -18,7 +18,7 @@ class DBCliconn(object):
     ts:       datetime
 
 class CliconnTable(Table):
-    async def get(self, id: int) -> Optional[DBCliconn]:
+    async def get(self, id: int) -> DBCliconn:
         query = """
             SELECT nickname, username, realname, hostname, ip, ts
             FROM cliconn
@@ -27,10 +27,7 @@ class CliconnTable(Table):
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, id)
 
-        if row is not None:
-            return DBCliconn(*row)
-        else:
-            return None
+        return DBCliconn(*row)
 
     async def add(self,
             nickname: str,
