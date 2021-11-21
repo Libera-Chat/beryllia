@@ -221,7 +221,9 @@ class KLineKillTable(Table):
         param   = str(self.to_search(pattern, SearchType.HOST))
         return await self._get_kline("WHERE TEXT(ip) LIKE $1", limit, param)
 
-    async def find_by_kline(self, kline_id: int) -> Sequence[int]:
+    async def find_by_kline(self,
+            kline_id: int
+            ) -> Sequence[DBKLineKill]:
         query = """
             SELECT nickname, username, hostname, ip, ts
             FROM kline_kill
