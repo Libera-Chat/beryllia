@@ -37,7 +37,7 @@ class DBKLineRemove(object):
     ts:     datetime
 
 class KLineTable(Table):
-    async def get(self, id: int) -> Optional[DBKLine]:
+    async def get(self, id: int) -> DBKLine:
         query = """
             SELECT mask, source, oper, duration, reason, ts, expire
             FROM kline
@@ -46,10 +46,7 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, id)
 
-        if row is not None:
-            return DBKLine(*row)
-        else:
-            return None
+        return DBKLine(*row)
 
     async def find(self, mask: str) -> Optional[int]:
         query = """
