@@ -226,34 +226,27 @@ class Server(BaseServer):
                 limit = int(limit_s)
 
             if   type == "nick":
-                kills = await db.kline_kill.find_by_nick(query)
+                klines = await db.kline_kill.find_by_nick(query, limit)
             elif type == "host":
-                kills = await db.kline_kill.find_by_host(query)
+                klines = await db.kline_kill.find_by_host(query, limit)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    kills = await db.kline_kill.find_by_ip(ip)
+                    klines = await db.kline_kill.find_by_ip(ip, limit)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    kills = await db.kline_kill.find_by_cidr(cidr)
+                    klines = await db.kline_kill.find_by_cidr(cidr, limit)
                 elif looks_like_glob(query):
-                    kills = await db.kline_kill.find_by_ip_glob(query)
+                    klines = await db.kline_kill.find_by_ip_glob(
+                        query, limit
+                    )
                 else:
                     return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
-            klines: Dict[int, Set[str]] = {}
-            for kill in kills:
-                mask = f"{kill.nickname}!{kill.username}@{kill.hostname}"
-
-                if kill.kline_id not in klines:
-                    klines[kill.kline_id] = set()
-                klines[kill.kline_id].add(mask)
-
             outs: List[str] = []
-            shown_klines = sorted(klines.items(), reverse=True)[:limit]
-            for kline_id, masks in shown_klines:
-                kline  = await self.database.kline.get(kline_id)
-                remove = await self.database.kline_remove.get(kline_id)
+            for kline_id in klines:
+                kline  = await db.kline.get(kline_id)
+                remove = await db.kline_remove.get(kline_id)
 
                 kts_human = pretty_delta(now-kline.ts)
                 if remove is not None:
@@ -265,10 +258,10 @@ class Server(BaseServer):
                     ts_left  = pretty_delta(kline.expire-now)
                     remove_s = f"\x0304{ts_left} remaining\x03"
 
-                outs.append(
-                    "affected: " +
-                    ", ".join(sorted(masks))
-                )
+                kills = await db.kline_kill.find_by_kline(kline_id)
+                masks = sorted([k.nuh() for k in kills])
+                outs.append("affected: " + ", ".join(masks))
+
                 outs.append(
                     "  \x02K-Line\x02:"
                     f" {kline.mask}"

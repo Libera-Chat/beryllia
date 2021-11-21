@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
 from ipaddress   import IPv4Network, IPv6Network
-from typing      import Any, List, Optional, Union
+from typing      import Any, Optional, Sequence, Union
 
 from .common     import Table
 from ..normalise import SearchType
@@ -20,12 +20,15 @@ class DBKLine(object):
 
 @dataclass
 class DBKLineKill(object):
-    kline_id: int
     nickname: str
     username: str
     hostname: str
     ip:       Optional[Union[IPv4Address, IPv6Address]]
     ts:       datetime
+
+    # nick user host
+    def nuh(self) -> str:
+        return f"{self.nickname}!{self.username}@{self.hostname}"
 
 @dataclass
 class DBKLineRemove(object):
@@ -153,87 +156,85 @@ class KLineKillTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
-    async def _get(self,
+    async def _get_kline(self,
             where: str,
             limit: Optional[int],
             *args: Any
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
         limit_str = ""
         if limit is not None:
             limit_str = f"LIMIT {limit}"
 
         query = f"""
-            SELECT kline_id, nickname, username, hostname, ip, ts
-            FROM kline_kill
+            SELECT DISTINCT(kline.id), kline.ts FROM kline_kill
+            LEFT JOIN kline ON kline_kill.kline_id = kline.id
             {where}
-            ORDER BY ts DESC
+            ORDER BY kline.ts desc
             {limit_str}
         """
 
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, *args)
 
-        return [DBKLineKill(*row) for row in rows]
-
-    async def get(self, id: int) -> Optional[DBKLineKill]:
-        kills = await self._get("WHERE id = $1", 1, id)
-        if kills:
-            return kills[0]
-        else:
-            return None
+        return [row[0] for row in rows]
 
     async def find_by_nick(self,
             nickname: str,
             limit:    Optional[int]=None
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param   = str(self.to_search(pattern, SearchType.NICK))
-        return await self._get("WHERE search_nick LIKE $1", limit, param)
+        return await self._get_kline(
+            "WHERE search_nick LIKE $1", limit, param
+        )
 
     async def find_by_host(self,
             hostname: str,
             limit:    Optional[int]=None
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get("WHERE search_host LIKE $1", limit, param)
+        return await self._get_kline(
+            "WHERE search_host LIKE $1", limit, param
+        )
 
     async def find_by_ip(self,
             ip:    Union[IPv4Address, IPv6Address],
             limit: Optional[int]=None
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
-        return await self._get("WHERE ip = $1", limit, ip)
+        return await self._get_kline("WHERE ip = $1", limit, ip)
 
     async def find_by_cidr(self,
             cidr:  Union[IPv4Network, IPv6Network],
             limit: Optional[int]=None
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
-        return await self._get("WHERE ip << $1", limit, cidr)
+        return await self._get_kline("WHERE ip << $1", limit, cidr)
 
     async def find_by_ip_glob(self,
             glob:  str,
             limit: Optional[int]=None
-            ) -> List[DBKLineKill]:
+            ) -> Sequence[int]:
 
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get("WHERE TEXT(ip) LIKE $1", limit, param)
+        return await self._get_kline("WHERE TEXT(ip) LIKE $1", limit, param)
 
-    async def find_by_kline(self, kline_id: int) -> List[int]:
+    async def find_by_kline(self, kline_id: int) -> Sequence[int]:
         query = """
-            SELECT id
+            SELECT nickname, username, hostname, ip, ts
             FROM kline_kill
             WHERE kline_id = $1
         """
+
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, kline_id)
 
-        return [row[0] for row in rows]
+        return [DBKLineKill(*row) for row in rows]
 
     async def set_kline(self,
             kill_id:  int,
