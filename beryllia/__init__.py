@@ -26,6 +26,7 @@ RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
+MASK_MAX = 3
 
 class Server(BaseServer):
     database: Database
@@ -263,7 +264,9 @@ class Server(BaseServer):
 
                 kills = await db.kline_kill.find_by_kline(kline_id)
                 masks = sorted([k.nuh() for k in kills])
-                outs.append("affected: " + ", ".join(masks))
+                outs.append("affected: " + ", ".join(masks[:MASK_MAX]))
+                if len(masks) > MASK_MAX:
+                    outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
 
                 outs.append(
                     "  \x02K-Line\x02:"
