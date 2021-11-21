@@ -165,7 +165,7 @@ class CliconnTable(Table):
             WHERE TEXT(ip) LIKE $1
             ORDER BY ts DESC
         """
-        pattern = glob_to_sql(lex_glob_pattern(hostname))
+        pattern = glob_to_sql(lex_glob_pattern(glob))
         param   = str(self.to_search(pattern, SearchType.HOST))
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
