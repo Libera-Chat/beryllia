@@ -51,6 +51,27 @@ CREATE INDEX kline_kill_search_user ON kline_kill(search_user);
 CREATE INDEX kline_kill_search_host ON kline_kill(search_host);
 CREATE INDEX kline_kill_ip          ON kline_kill(ip);
 
+CREATE TABLE kline_reject (
+    id          SERIAL PRIMARY KEY,
+    kline_id    INTEGER     NOT NULL  REFERENCES kline (id)  ON DELETE CASCADE,
+    nickname    VARCHAR(16) NOT NULL,
+    search_nick VARCHAR(16) NOT NULL,
+    username    VARCHAR(10) NOT NULL,
+    search_user VARCHAR(10) NOT NULL,
+    hostname    VARCHAR(64) NOT NULL,
+    search_host VARCHAR(64) NOT NULL,
+    ip          INET,
+    ts          TIMESTAMP   NOT NULL,
+    UNIQUE (kline_id, search_nick, search_user, search_host)
+);
+-- for joining with kline(id)
+CREATE INDEX kline_reject_kline_id    ON kline_reject(kline_id);
+-- for `!kcheck` searches
+CREATE INDEX kline_reject_search_nick ON kline_reject(search_nick);
+CREATE INDEX kline_reject_search_user ON kline_reject(search_user);
+CREATE INDEX kline_reject_search_host ON kline_reject(search_host);
+CREATE INDEX kline_reject_ip          ON kline_reject(ip);
+
 CREATE TABLE cliconn (
     id          SERIAL PRIMARY KEY,
     nickname    VARCHAR(16) NOT NULL,

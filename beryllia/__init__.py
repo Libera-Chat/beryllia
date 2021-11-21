@@ -23,6 +23,7 @@ RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K-Lined user) (?P<nickname>\S+)\[[^]]+\] .(?P<mask>\S+).$")
+RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
@@ -76,11 +77,12 @@ class Server(BaseServer):
             self._database_init = True
 
         elif line.command == RPL_YOUREOPER:
+            # B connections rejected due to k-line
             # F far cliconn
             # c near cliconn
             # k server kills
             # s oper kills, klines
-            await self.send(build("MODE", [self.nickname, "-s+s", "+Fcks"]))
+            await self.send(build("MODE", [self.nickname, "-s+s", "+BFcks"]))
 
         elif (line.command == "NOTICE" and
                 line.params[0] == "*" and
@@ -95,6 +97,7 @@ class Server(BaseServer):
             p_klineadd  = RE_KLINEADD.search(message)
             p_klinedel  = RE_KLINEDEL.search(message)
             p_klineexit = RE_KLINEEXIT.search(message)
+            p_klinerej  = RE_KLINEREJ.search(message)
 
             if p_cliconn is not None:
                 nickname = p_cliconn.group("nick")
@@ -164,6 +167,27 @@ class Server(BaseServer):
                 mask     = p_klineexit.group("mask")
                 # we wait until cliexit because that snote has an IP in it
                 self._wait_for_exit[nickname] = mask
+
+            # effectively a clone of p_cliexit
+            elif p_klinerej is not None:
+                nickname = p_klinerej.group("nick")
+                username = p_klinerej.group("user")
+                hostname = p_klinerej.group("host")
+                mask     = p_klinerej.group("mask")
+
+                ip: Optional[Union[IPv4Address, IPv6Address]] = None
+                if not (ip_str := p_klinerej.group("ip")) == "0":
+                    ip = ipaddress.ip_address(ip_str)
+
+                kline_id = await self.database.kline.find(mask)
+                if kline_id is not None:
+                    found = await self.database.kline_reject.find(
+                        kline_id, nickname, username, hostname, ip
+                    )
+                    if found is None:
+                        await self.database.kline_reject.add(
+                            kline_id, nickname, username, hostname, ip
+                        )
 
         elif (line.command == "PRIVMSG" and
                 not self.is_me(line.hostmask.nickname)):

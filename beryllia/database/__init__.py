@@ -1,8 +1,11 @@
 import asyncpg
 
-from .db_cliconns import *
-from .db_klines   import *
-from .db_statsp   import *
+from .db_cliconns     import *
+from .db_statsp       import *
+from .db_kline        import *
+from .db_kline_kill   import *
+from .db_kline_reject import *
+from .db_kline_remove import *
 
 from ..normalise  import SearchType, SearchNormaliser
 
@@ -13,6 +16,7 @@ class Database(object):
             ):
 
         self.kline        = KLineTable(pool, normaliser)
+        self.kline_reject = KLineRejectTable(pool, normaliser)
         self.kline_remove = KLineRemoveTable(pool, normaliser)
         self.kline_kill   = KLineKillTable(pool, normaliser)
         self.cliconn      = CliconnTable(pool, normaliser)
