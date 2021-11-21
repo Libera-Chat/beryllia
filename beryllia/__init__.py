@@ -271,7 +271,7 @@ class Server(BaseServer):
             else:
                 return [f"unknown query type '{type}'"]
 
-            # sort time timestamp descending
+            # sort by timestamp descending
             klines = sorted(set(klines_), key=lambda k: k[1], reverse=True)
             # apply output limit
             klines = klines[:limit]
