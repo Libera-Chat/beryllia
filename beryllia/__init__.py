@@ -1,7 +1,7 @@
 import asyncio, ipaddress, re, time
 from collections import OrderedDict
 from datetime    import datetime, timedelta
-from typing      import Dict, List, Optional, Set, Tuple
+from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
 from irctokens import build, Line
