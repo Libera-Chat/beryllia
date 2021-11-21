@@ -61,6 +61,8 @@ CREATE TABLE cliconn (
     search_real VARCHAR(50) NOT NULL,
     hostname    VARCHAR(64) NOT NULL,
     search_host VARCHAR(64) NOT NULL,
+    account     VARCHAR(16),
+    search_acc  VARCHAR(16),
     ip          INET,
     ts          TIMESTAMP   NOT NULL
 );

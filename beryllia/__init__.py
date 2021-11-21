@@ -18,7 +18,7 @@ from .normalise import RFC1459SearchNormaliser
 from .util      import oper_up, pretty_delta, get_statsp
 from .util      import try_parse_cidr, try_parse_ip, looks_like_glob
 
-RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ \S+ \[(?P<real>.*)\]$")
+RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
@@ -105,8 +105,12 @@ class Server(BaseServer):
                 if not (ip_str := p_cliconn.group("ip")) == "0":
                     ip = ipaddress.ip_address(ip_str)
 
+                account: Optional[str] = None
+                if not (account_ := p_cliconn.group("account")) == "*":
+                    account = account_
+
                 await self.database.cliconn.add(
-                    nickname, username, realname, hostname, ip
+                    nickname, username, realname, hostname, account, ip
                 )
 
             elif p_cliexit is not None:

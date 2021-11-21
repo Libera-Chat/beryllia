@@ -37,8 +37,13 @@ class CliconnTable(Table):
             username: str,
             realname: str,
             hostname: str,
+            account:  Optional[str],
             ip:       Union[IPv4Address, IPv6Address]
             ):
+
+        search_acc: Optional[str] = None
+        if account is not None:
+            search_acc = str(self.to_search(account, SearchType.NICK))
 
         query = """
             INSERT INTO cliconn (
@@ -50,10 +55,25 @@ class CliconnTable(Table):
                 search_real,
                 hostname,
                 search_host,
+                account,
+                search_acc,
                 ip,
                 ts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()::TIMESTAMP)
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                $5,
+                $6,
+                $7,
+                $8,
+                $9,
+                $10,
+                $11,
+                NOW()::TIMESTAMP
+            )
         """
         args = [
             nickname,
@@ -64,6 +84,8 @@ class CliconnTable(Table):
             str(self.to_search(realname, SearchType.REAL)),
             hostname,
             str(self.to_search(hostname, SearchType.HOST)),
+            account,
+            search_acc,
             ip
         ]
         async with self.pool.acquire() as conn:
