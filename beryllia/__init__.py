@@ -250,24 +250,30 @@ class Server(BaseServer):
             if args and (limit_s := args[0]).isdigit():
                 limit = int(limit_s)
 
+            klines_: List[Tuple[int, datetime]] = []
             if   type == "nick":
-                klines_ = await db.kline_kill.find_by_nick(query)
+                klines_ += await db.kline_kill.find_by_nick(query)
+                klines_ += await db.kline_reject.find_by_nick(query)
             elif type == "host":
-                klines_ = await db.kline_kill.find_by_host(query)
+                klines_ += await db.kline_kill.find_by_host(query)
+                klines_ += await db.kline_reject.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    klines_ = await db.kline_kill.find_by_ip(ip)
+                    klines_ += await db.kline_kill.find_by_ip(ip)
+                    klines_ += await db.kline_reject.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    klines_ = await db.kline_kill.find_by_cidr(cidr)
+                    klines_ += await db.kline_kill.find_by_cidr(cidr)
+                    klines_ += await db.kline_reject.find_by_cidr(cidr)
                 elif looks_like_glob(query):
-                    klines_ = await db.kline_kill.find_by_ip_glob(query)
+                    klines_ += await db.kline_kill.find_by_ip_glob(query)
+                    klines_ += await db.kline_reject.find_by_ip_glob(query)
                 else:
                     return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
             # sort time timestamp descending
-            klines = sorted(klines_, key=lambda k: k[1], reverse=True)
+            klines = sorted(set(klines_), key=lambda k: k[1], reverse=True)
             # apply output limit
             klines = klines[:limit]
 
@@ -286,8 +292,11 @@ class Server(BaseServer):
                     ts_left  = pretty_delta(kline.expire-now)
                     remove_s = f"\x0304{ts_left} remaining\x03"
 
-                kills = await db.kline_kill.find_by_kline(kline_id)
-                masks = sorted([k.nuh() for k in kills])
+                kills   = await db.kline_kill.find_by_kline(kline_id)
+                rejects = await db.kline_reject.find_by_kline(kline_id)
+                affected: List[NickUserHost] = list(kills) + list(rejects)
+
+                masks = sorted(set(nuh.nuh() for nuh in affected))
                 outs.append("affected: " + ", ".join(masks[:MASK_MAX]))
                 if len(masks) > MASK_MAX:
                     outs[-1] += f" (and {len(masks)-MASK_MAX} more)"

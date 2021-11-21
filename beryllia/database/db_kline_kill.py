@@ -4,12 +4,12 @@ from ipaddress   import IPv4Address, IPv6Address
 from ipaddress   import IPv4Network, IPv6Network
 from typing      import Any, Collection, Optional, Tuple, Union
 
-from .common     import Table
+from .common     import NickUserHost, Table
 from ..normalise import SearchType
 from ..util      import lex_glob_pattern, glob_to_sql
 
 @dataclass
-class DBKLineKill(object):
+class DBKLineKill(NickUserHost):
     id:       int
     nickname: str
     username: str
