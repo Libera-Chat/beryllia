@@ -168,7 +168,6 @@ class Server(BaseServer):
                 # we wait until cliexit because that snote has an IP in it
                 self._wait_for_exit[nickname] = mask
 
-            # effectively a clone of p_cliexit
             elif p_klinerej is not None:
                 nickname = p_klinerej.group("nick")
                 username = p_klinerej.group("user")
