@@ -226,25 +226,28 @@ class Server(BaseServer):
                 limit = int(limit_s)
 
             if   type == "nick":
-                klines = await db.kline_kill.find_by_nick(query, limit)
+                klines_ = await db.kline_kill.find_by_nick(query)
             elif type == "host":
-                klines = await db.kline_kill.find_by_host(query, limit)
+                klines_ = await db.kline_kill.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    klines = await db.kline_kill.find_by_ip(ip, limit)
+                    klines_ = await db.kline_kill.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    klines = await db.kline_kill.find_by_cidr(cidr, limit)
+                    klines_ = await db.kline_kill.find_by_cidr(cidr)
                 elif looks_like_glob(query):
-                    klines = await db.kline_kill.find_by_ip_glob(
-                        query, limit
-                    )
+                    klines_ = await db.kline_kill.find_by_ip_glob(query)
                 else:
                     return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
+            # sort time timestamp descending
+            klines = sorted(klines_, key=lambda k: k[1], reverse=True)
+            # apply output limit
+            klines = klines[:limit]
+
             outs: List[str] = []
-            for kline_id in klines:
+            for kline_id, _ in klines:
                 kline  = await db.kline.get(kline_id)
                 remove = await db.kline_remove.get(kline_id)
 

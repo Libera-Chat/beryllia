@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
 from ipaddress   import IPv4Network, IPv6Network
-from typing      import Any, Optional, Sequence, Union
+from typing      import Any, Collection, Optional, Tuple, Union
 
 from .common     import Table
 from ..normalise import SearchType
@@ -156,75 +156,59 @@ class KLineKillTable(Table):
 
     async def _get_kline(self,
             where: str,
-            limit: Optional[int],
             *args: Any
-            ) -> Sequence[int]:
-
-        limit_str = ""
-        if limit is not None:
-            limit_str = f"LIMIT {limit}"
+            ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
             SELECT DISTINCT(kline.id), kline.ts FROM kline_kill
             LEFT JOIN kline ON kline_kill.kline_id = kline.id
             {where}
-            ORDER BY kline.ts desc
-            {limit_str}
         """
 
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, *args)
 
-        return [row[0] for row in rows]
+        return rows
 
     async def find_by_nick(self,
-            nickname: str,
-            limit:    Optional[int]=None
-            ) -> Sequence[int]:
+            nickname: str
+            ) -> Collection[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param   = str(self.to_search(pattern, SearchType.NICK))
-        return await self._get_kline(
-            "WHERE search_nick LIKE $1", limit, param
-        )
+        return await self._get_kline("WHERE search_nick LIKE $1", param)
 
     async def find_by_host(self,
-            hostname: str,
-            limit:    Optional[int]=None
-            ) -> Sequence[int]:
+            hostname: str
+            ) -> Collection[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get_kline(
-            "WHERE search_host LIKE $1", limit, param
-        )
+        return await self._get_kline("WHERE search_host LIKE $1", param)
 
     async def find_by_ip(self,
-            ip:    Union[IPv4Address, IPv6Address],
-            limit: Optional[int]=None
-            ) -> Sequence[int]:
+            ip:    Union[IPv4Address, IPv6Address]
+            ) -> Collection[Tuple[int, datetime]]:
 
-        return await self._get_kline("WHERE ip = $1", limit, ip)
+        return await self._get_kline("WHERE ip = $1", ip)
 
     async def find_by_cidr(self,
-            cidr:  Union[IPv4Network, IPv6Network],
-            limit: Optional[int]=None
-            ) -> Sequence[int]:
+            cidr:  Union[IPv4Network, IPv6Network]
+            ) -> Collection[Tuple[int, datetime]]:
 
-        return await self._get_kline("WHERE ip << $1", limit, cidr)
+        return await self._get_kline("WHERE ip << $1", cidr)
 
     async def find_by_ip_glob(self,
-            glob:  str,
-            limit: Optional[int]=None
-            ) -> Sequence[int]:
+            glob:  str
+            ) -> Collection[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get_kline("WHERE TEXT(ip) LIKE $1", limit, param)
+        return await self._get_kline("WHERE TEXT(ip) LIKE $1", param)
 
     async def find_by_kline(self,
             kline_id: int
-            ) -> Sequence[DBKLineKill]:
+            ) -> Collection[DBKLineKill]:
         query = """
             SELECT id, nickname, username, hostname, ip, ts
             FROM kline_kill
