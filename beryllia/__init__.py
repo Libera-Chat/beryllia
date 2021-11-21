@@ -217,7 +217,6 @@ class Server(BaseServer):
             db   = self.database
             now  = datetime.utcnow()
 
-            # allow override in a command argument?
             limit = 3
             if args and (limit_s := args[0]).isdigit():
                 limit = int(limit_s)
