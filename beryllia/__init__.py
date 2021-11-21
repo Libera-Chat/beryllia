@@ -147,8 +147,8 @@ class Server(BaseServer):
                 if old_id is not None:
                     db    = self.database
                     kills = await db.kline_kill.find_by_kline(old_id)
-                    for kill_id in kills:
-                        await db.kline_kill.set_kline(kill_id, id)
+                    for kill in kills:
+                        await db.kline_kill.set_kline(kill.id, id)
 
             elif p_klinedel is not None:
                 source = p_klinedel.group("source")

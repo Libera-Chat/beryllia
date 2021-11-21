@@ -20,6 +20,7 @@ class DBKLine(object):
 
 @dataclass
 class DBKLineKill(object):
+    id:       int
     nickname: str
     username: str
     hostname: str
@@ -225,7 +226,7 @@ class KLineKillTable(Table):
             kline_id: int
             ) -> Sequence[DBKLineKill]:
         query = """
-            SELECT nickname, username, hostname, ip, ts
+            SELECT id, nickname, username, hostname, ip, ts
             FROM kline_kill
             WHERE kline_id = $1
         """
