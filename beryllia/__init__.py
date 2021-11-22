@@ -128,7 +128,7 @@ class Server(BaseServer):
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)
-                    kline_id = await self.database.kline.find(mask)
+                    kline_id = await self.database.kline.find_active(mask)
                     if kline_id is not None:
                         await self.database.kline_kill.add(
                             kline_id, nickname, username, hostname, ip
@@ -141,7 +141,7 @@ class Server(BaseServer):
                 duration = p_klineadd.group("duration")
                 reason   = p_klineadd.group("reason")
 
-                old_id = await self.database.kline.find(mask)
+                old_id = await self.database.kline.find_active(mask)
                 id     = await self.database.kline.add(
                     source, oper, mask, int(duration)*60, reason
                 )
@@ -158,7 +158,7 @@ class Server(BaseServer):
                 source = p_klinedel.group("source")
                 oper   = p_klinedel.group("oper")
                 mask   = p_klinedel.group("mask")
-                id     = await self.database.kline.find(mask)
+                id     = await self.database.kline.find_active(mask)
                 if id is not None:
                     await self.database.kline_remove.add(id, source, oper)
 
@@ -178,7 +178,7 @@ class Server(BaseServer):
                 if not (ip_str := p_klinerej.group("ip")) == "0":
                     ip = ipaddress.ip_address(ip_str)
 
-                kline_id = await self.database.kline.find(mask)
+                kline_id = await self.database.kline.find_active(mask)
                 if kline_id is not None:
                     found = await self.database.kline_reject.find(
                         kline_id, nickname, username, hostname, ip

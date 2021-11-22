@@ -30,7 +30,7 @@ class KLineTable(Table):
 
         return DBKLine(*row)
 
-    async def find(self, mask: str) -> Optional[int]:
+    async def find_active(self, mask: str) -> Optional[int]:
         query = """
             SELECT kline.id FROM kline
 
