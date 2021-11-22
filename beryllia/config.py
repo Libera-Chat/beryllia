@@ -15,7 +15,7 @@ class Config(object):
     channel:  str
 
     sasl: Tuple[str, str]
-    oper: Tuple[str, str]
+    oper: Tuple[str, str, str]
 
     db_user: str
     db_pass: Optional[str]
