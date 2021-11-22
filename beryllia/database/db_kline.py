@@ -41,7 +41,8 @@ class KLineTable(Table):
             WHERE kline.mask = $1
             AND kline.expire > NOW()
 
-            ORDER BY kline.id DESC
+            ORDER BY kline.ts DESC
+            LIMIT 1
         """
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, mask)
