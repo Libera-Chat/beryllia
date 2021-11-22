@@ -69,7 +69,7 @@ class KLineRejectTable(KLineKillTable):
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
 
-    async def _get_kline(self,
+    async def _find_klines(self,
             where: str,
             *args: Any
             ) -> Collection[Tuple[int, datetime]]:

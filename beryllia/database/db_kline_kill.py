@@ -56,7 +56,7 @@ class KLineKillTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
-    async def _get_kline(self,
+    async def _find_klines(self,
             where: str,
             *args: Any
             ) -> Collection[Tuple[int, datetime]]:
@@ -80,7 +80,7 @@ class KLineKillTable(Table):
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param   = str(self.to_search(pattern, SearchType.NICK))
-        return await self._get_kline("WHERE search_nick LIKE $1", param)
+        return await self._find_klines("WHERE search_nick LIKE $1", param)
 
     async def find_by_host(self,
             hostname: str
@@ -88,19 +88,19 @@ class KLineKillTable(Table):
 
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get_kline("WHERE search_host LIKE $1", param)
+        return await self._find_klines("WHERE search_host LIKE $1", param)
 
     async def find_by_ip(self,
             ip:    Union[IPv4Address, IPv6Address]
             ) -> Collection[Tuple[int, datetime]]:
 
-        return await self._get_kline("WHERE ip = $1", ip)
+        return await self._find_klines("WHERE ip = $1", ip)
 
     async def find_by_cidr(self,
             cidr:  Union[IPv4Network, IPv6Network]
             ) -> Collection[Tuple[int, datetime]]:
 
-        return await self._get_kline("WHERE ip << $1", cidr)
+        return await self._find_klines("WHERE ip << $1", cidr)
 
     async def find_by_ip_glob(self,
             glob:  str
@@ -108,7 +108,7 @@ class KLineKillTable(Table):
 
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param   = str(self.to_search(pattern, SearchType.HOST))
-        return await self._get_kline("WHERE TEXT(ip) LIKE $1", param)
+        return await self._find_klines("WHERE TEXT(ip) LIKE $1", param)
 
     async def find_by_kline(self,
             kline_id: int
