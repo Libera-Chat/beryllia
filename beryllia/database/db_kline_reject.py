@@ -75,8 +75,10 @@ class KLineRejectTable(KLineKillTable):
             ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
-            SELECT DISTINCT(kline.id), kline.ts FROM kline_reject
-            LEFT JOIN kline ON kline_reject.kline_id = kline.id
+            SELECT DISTINCT(kline.id), kline.ts
+            FROM kline_reject
+            INNER JOIN kline
+            ON kline_reject.kline_id = kline.id
             {where}
         """
 
