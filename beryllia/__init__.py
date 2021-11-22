@@ -16,7 +16,7 @@ from ircrobots.matching import ANY, Folded, Response, SELF
 from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
-from .util      import oper_up, pretty_delta, get_statsp
+from .util      import oper_up, pretty_delta, get_statsp, get_klines
 from .util      import try_parse_cidr, try_parse_ip, looks_like_glob
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
@@ -60,6 +60,14 @@ class Server(BaseServer):
                 for oper, mask in await get_statsp(self):
                     await self.database.statsp.add(oper, mask, now)
 
+    async def _compare_klines(self):
+        klines_db  = await self.database.kline.list_active()
+        klines_irc = await get_klines(self)
+        for kline_gone in set(klines_db) - klines_irc:
+            kline_id = klines_db[kline_gone]
+            await self.database.kline_remove.add(kline_id, None, None)
+        # TODO: add new k-lines to database?
+
     async def line_read(self, line: Line):
         now = time.monotonic()
 
@@ -88,6 +96,7 @@ class Server(BaseServer):
             # n nick changes
             # s oper kills, klines
             await self.send(build("MODE", [self.nickname, "-s+s", "+BFckns"]))
+            await self._compare_klines()
 
         elif (line.command == "NOTICE" and
                 line.params[0] == "*" and

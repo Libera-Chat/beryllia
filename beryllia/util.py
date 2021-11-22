@@ -130,6 +130,31 @@ async def get_statsp(server: Server) -> List[Tuple[str, str]]:
 
     return opers
 
+RPL_STATSKLINE = "216"
+RPL_ENDOFSTATS = "219"
+# i call these "gline"s but brolanum calls them "propagated kline"s which i
+# think is silly
+STATS_GLINE_LINE = Response(RPL_STATSKLINE, [SELF, "g", ANY, "*", ANY, ANY])
+STATS_KLINE_LINE = Response(RPL_STATSKLINE, [SELF, "k", ANY, "*", ANY, ANY])
+STATS_END        = Response(RPL_ENDOFSTATS, [SELF, "g"])
+async def get_klines(server: Server) -> Set[str]:
+    await server.send(build("STATS", ["g"]))
+    await server.send(build("STATS", ["k"]))
+    masks: Set[str] = set()
+
+    wait = 2
+    while True:
+        stats_line = await server.wait_for({
+            STATS_GLINE_LINE, STATS_KLINE_LINE, STATS_END
+        })
+        if stats_line.command == RPL_STATSKLINE:
+            user = stats_line.params[4]
+            host = stats_line.params[2]
+            masks.add(f"{user}@{host}")
+        elif (wait := wait - 1) == 0
+            break
+    return masks
+
 def try_parse_ip(
         ip: str
         ) -> Optional[Union[IPv4Address, IPv6Address]]:
