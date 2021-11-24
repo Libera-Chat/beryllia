@@ -21,6 +21,7 @@ class Database(object):
         self.kline_remove = KLineRemoveTable(pool, normaliser)
         self.kline_kill   = KLineKillTable(pool, normaliser)
         self.cliconn      = CliconnTable(pool, normaliser)
+        self.cliexit      = CliexitTable(pool, normaliser)
         self.nick_change  = NickChangeTable(pool, normaliser)
         self.statsp       = StatsPTable(pool, normaliser)
 

@@ -149,7 +149,7 @@ class Server(BaseServer):
 
                 if nickname in self._cliconns:
                     cliconn_id = self._cliconns.pop(nickname)
-                    await self.database.cliconn.set_exit(cliconn_id)
+                    await self.database.cliexit.add(cliconn_id)
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)

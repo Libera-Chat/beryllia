@@ -102,15 +102,6 @@ class CliconnTable(Table):
             await conn.execute(query1, *args1)
             return await conn.fetchval(query2, nickname)
 
-    async def set_exit(self, cliconn_id: int):
-        query = """
-            UPDATE cliconn
-            SET exit=NOW()::TIMESTAMP
-            WHERE id=$1
-        """
-        async with self.pool.acquire() as conn:
-            await conn.execute(query, cliconn_id)
-
     async def find_by_nick(self, nickname: str) -> List[int]:
         query = """
             SELECT id
@@ -193,3 +184,12 @@ class CliconnTable(Table):
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, param)
         return [row[0] for row in rows]
+
+class CliexitTable(Table):
+    async def add(self, cliconn_id: int):
+        query = """
+            INSERT INTO cliexit (cliconn_id, ts)
+            VALUES ($1, NOW()::TIMESTAMP)
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, cliconn_id)
