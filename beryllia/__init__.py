@@ -115,7 +115,13 @@ class Server(BaseServer):
                     account = account_
 
                 await self.database.cliconn.add(
-                    nickname, username, realname, hostname, account, ip
+                    nickname,
+                    username,
+                    realname,
+                    hostname,
+                    account,
+                    ip,
+                    line.source
                 )
 
             elif p_cliexit is not None:

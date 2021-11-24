@@ -15,12 +15,13 @@ class DBCliconn(object):
     realname: str
     hostname: str
     ip:       Union[IPv4Address, IPv6Address]
+    server:   str
     ts:       datetime
 
 class CliconnTable(Table):
     async def get(self, id: int) -> DBCliconn:
         query = """
-            SELECT nickname, username, realname, hostname, ip, ts
+            SELECT nickname, username, realname, hostname, ip, server, ts
             FROM cliconn
             WHERE id = $1
         """
@@ -35,7 +36,8 @@ class CliconnTable(Table):
             realname: str,
             hostname: str,
             account:  Optional[str],
-            ip:       Optional[Union[IPv4Address, IPv6Address]]
+            ip:       Optional[Union[IPv4Address, IPv6Address]],
+            server:   str
             ):
 
         search_acc: Optional[str] = None
@@ -55,6 +57,7 @@ class CliconnTable(Table):
                 account,
                 search_acc,
                 ip,
+                server,
                 ts
             )
             VALUES (
@@ -69,6 +72,7 @@ class CliconnTable(Table):
                 $9,
                 $10,
                 $11,
+                $12,
                 NOW()::TIMESTAMP
             )
         """
@@ -83,7 +87,8 @@ class CliconnTable(Table):
             str(self.to_search(hostname, SearchType.HOST)),
             account,
             search_acc,
-            ip
+            ip,
+            server
         ]
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
