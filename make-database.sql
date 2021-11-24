@@ -85,6 +85,7 @@ CREATE TABLE cliconn (
     account     VARCHAR(16),
     search_acc  VARCHAR(16),
     ip          INET,
+    server      VARCHAR(92) NOT NULL,
     ts          TIMESTAMP   NOT NULL
 );
 -- for retention period bulk deletion
