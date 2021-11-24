@@ -387,7 +387,7 @@ class Server(BaseServer):
             since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
             statsp_d = await self.database.statsp.count_since(since_ts)
             col_size = max([len(str(m)) for m in statsp_d.values()])
- 
+
             outs: List[str] = []
             for oper, minutes in statsp_d.items():
                 mins_str = str(minutes).rjust(col_size)
