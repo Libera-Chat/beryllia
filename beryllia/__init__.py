@@ -25,6 +25,7 @@ RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K-Lined user) (?P<nickname>\S+)\[[^]]+\] .(?P<mask>\S+).$")
 RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
+RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
@@ -45,6 +46,8 @@ class Server(BaseServer):
 
         self._database_init: bool = False
         self._wait_for_exit: Dict[str, str] = {}
+
+        self._cliconns: Dict[str, int] = {}
 
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
@@ -82,8 +85,9 @@ class Server(BaseServer):
             # F far cliconn
             # c near cliconn
             # k server kills
+            # n nick changes
             # s oper kills, klines
-            await self.send(build("MODE", [self.nickname, "-s+s", "+BFcks"]))
+            await self.send(build("MODE", [self.nickname, "-s+s", "+BFckns"]))
 
         elif (line.command == "NOTICE" and
                 line.params[0] == "*" and
@@ -99,6 +103,7 @@ class Server(BaseServer):
             p_klinedel  = RE_KLINEDEL.search(message)
             p_klineexit = RE_KLINEEXIT.search(message)
             p_klinerej  = RE_KLINEREJ.search(message)
+            p_nickchg   = RE_NICKCHG.search(message)
 
             if p_cliconn is not None:
                 nickname = p_cliconn.group("nick")
@@ -114,7 +119,7 @@ class Server(BaseServer):
                 if not (account_ := p_cliconn.group("account")) == "*":
                     account = account_
 
-                await self.database.cliconn.add(
+                cliconn_id = await self.database.cliconn.add(
                     nickname,
                     username,
                     realname,
@@ -123,6 +128,15 @@ class Server(BaseServer):
                     ip,
                     line.source
                 )
+                self._cliconns[nickname] = cliconn_id
+
+            elif p_nickchg is not None:
+                old_nick = p_nickchg.group("old_nick")
+                new_nick = p_nickchg.group("new_nick")
+                if old_nick in self._cliconns:
+                    cliconn_id = self._cliconns.pop(old_nick)
+                    self._cliconns[new_nick] = cliconn_id
+                    await self.database.nick_change.add(cliconn_id, new_nick)
 
             elif p_cliexit is not None:
                 nickname = p_cliexit.group("nick")
@@ -132,6 +146,10 @@ class Server(BaseServer):
                 ip: Optional[Union[IPv4Address, IPv6Address]] = None
                 if not (ip_str := p_cliexit.group("ip")) == "0":
                     ip = ipaddress.ip_address(ip_str)
+
+                if nickname in self._cliconns:
+                    cliconn_id = self._cliconns.pop(nickname)
+                    await self.database.cliconn.set_exit(cliconn_id)
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)

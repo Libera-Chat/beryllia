@@ -86,7 +86,8 @@ CREATE TABLE cliconn (
     search_acc  VARCHAR(16),
     ip          INET,
     server      VARCHAR(92) NOT NULL,
-    ts          TIMESTAMP   NOT NULL
+    ts          TIMESTAMP   NOT NULL,
+    exit        TIMESTAMP
 );
 -- for retention period bulk deletion
 CREATE INDEX cliconn_ts          ON cliconn(ts);
@@ -95,6 +96,17 @@ CREATE INDEX cliconn_search_nick ON cliconn(search_nick);
 CREATE INDEX cliconn_search_user ON cliconn(search_user);
 CREATE INDEX cliconn_search_host ON cliconn(search_host);
 CREATE INDEX cliconn_ip          ON cliconn(ip);
+
+CREATE TABLE nick_change (
+    id           SERIAL       PRIMARY KEY,
+    cliconn_id   INTEGER      NOT NULL  REFERENCES cliconn (id)  ON DELETE CASCADE,
+    nickname     VARCHAR(16)  NOT NULL,
+    search_nick  VARCHAR(16)  NOT NULL,
+    ts           TIMESTAMP    NOT NULL
+);
+-- for `!cliconn` searches
+CREATE INDEX nick_change_cliconn_id ON nick_change(cliconn_id);
+CREATE INDEX nick_change_nickname   ON nick_change(nickname);
 
 CREATE TABLE statsp (
     oper VARCHAR(16) NOT NULL,

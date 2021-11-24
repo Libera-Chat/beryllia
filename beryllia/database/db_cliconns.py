@@ -38,13 +38,13 @@ class CliconnTable(Table):
             account:  Optional[str],
             ip:       Optional[Union[IPv4Address, IPv6Address]],
             server:   str
-            ):
+            ) -> int:
 
         search_acc: Optional[str] = None
         if account is not None:
             search_acc = str(self.to_search(account, SearchType.NICK))
 
-        query = """
+        query1 = """
             INSERT INTO cliconn (
                 nickname,
                 search_nick,
@@ -76,7 +76,7 @@ class CliconnTable(Table):
                 NOW()::TIMESTAMP
             )
         """
-        args = [
+        args1 = [
             nickname,
             str(self.to_search(nickname, SearchType.NICK)),
             username,
@@ -90,8 +90,26 @@ class CliconnTable(Table):
             ip,
             server
         ]
+        query2 = """
+            SELECT id
+            FROM cliconn
+            WHERE nickname=$1
+            ORDER BY ts DESC
+            LIMIT 1
+        """
+
         async with self.pool.acquire() as conn:
-            await conn.execute(query, *args)
+            await conn.execute(query1, *args1)
+            return await conn.fetchval(query2, nickname)
+
+    async def set_exit(self, cliconn_id: int):
+        query = """
+            UPDATE cliconn
+            SET exit=NOW()::TIMESTAMP
+            WHERE id=$1
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, cliconn_id)
 
     async def find_by_nick(self, nickname: str) -> List[int]:
         query = """

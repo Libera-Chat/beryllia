@@ -1,6 +1,7 @@
 import asyncpg
 
 from .db_cliconns     import *
+from .db_nick_change  import *
 from .db_statsp       import *
 from .db_kline        import *
 from .db_kline_kill   import *
@@ -20,6 +21,7 @@ class Database(object):
         self.kline_remove = KLineRemoveTable(pool, normaliser)
         self.kline_kill   = KLineKillTable(pool, normaliser)
         self.cliconn      = CliconnTable(pool, normaliser)
+        self.nick_change  = NickChangeTable(pool, normaliser)
         self.statsp       = StatsPTable(pool, normaliser)
 
     @classmethod
