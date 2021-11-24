@@ -102,7 +102,7 @@ CREATE TABLE nick_change (
     nickname     VARCHAR(16)  NOT NULL,
     search_nick  VARCHAR(16)  NOT NULL,
     ts           TIMESTAMP    NOT NULL
-)
+);
 -- for `!cliconn` searches
 CREATE INDEX nick_change_cliconn_id ON nick_change(cliconn_id);
 CREATE INDEX nick_change_nickname   ON nick_change(nickname);
