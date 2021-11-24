@@ -1,6 +1,7 @@
 import asyncio, ipaddress, re, time
 from collections import OrderedDict
 from datetime    import datetime, timedelta
+from ipaddress   import IPv4Address, IPv6Address
 from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
