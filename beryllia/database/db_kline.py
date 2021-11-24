@@ -72,4 +72,4 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
-        return await self.find(mask) or -1 # -1 to fix typehint
+        return await self.find_active(mask) or -1 # -1 to fix typehint
