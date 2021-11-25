@@ -25,7 +25,7 @@ class NickChangeTable(Table):
             ) -> Sequence[Tuple[int, datetime]]:
 
         query = """
-            SELECT cliconn.id, cliconn.ts
+            SELECT DISTINCT(cliconn.id), cliconn.ts
                 FROM cliconn
             INNER JOIN nick_change
                 ON cliconn.id = nick_change.cliconn_id
