@@ -2,14 +2,14 @@ from dataclasses import dataclass
 from datetime    import datetime
 from ipaddress   import IPv4Address, IPv6Address
 from ipaddress   import IPv4Network, IPv6Network
-from typing      import List, Optional, Union
+from typing      import Any, Optional, Sequence, Tuple, Union
 
-from .common     import Table
+from .common     import NickUserHost, Table
 from ..normalise import SearchType
 from ..util      import glob_to_sql, lex_glob_pattern
 
 @dataclass
-class DBCliconn(object):
+class DBCliconn(NickUserHost):
     nickname: str
     username: str
     realname: str
@@ -17,6 +17,9 @@ class DBCliconn(object):
     ip:       Union[IPv4Address, IPv6Address]
     server:   str
     ts:       datetime
+
+    def nuh(self) -> str:
+        return f"{self.nickname}!{self.username}@{self.hostname}"
 
 class CliconnTable(Table):
     async def get(self, id: int) -> DBCliconn:
@@ -102,88 +105,83 @@ class CliconnTable(Table):
             await conn.execute(query1, *args1)
             return await conn.fetchval(query2, nickname)
 
-    async def find_by_nick(self, nickname: str) -> List[int]:
-        query = """
-            SELECT id
+    async def _find_cliconns(self,
+            where: str,
+            *args: Any
+            ) -> Sequence[Tuple[int, datetime]]:
+
+        query = f"""
+            SELECT id, ts
             FROM cliconn
-            WHERE search_nick LIKE $1
+            {where}
             ORDER BY ts DESC
+            LIMIT 3
         """
+
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(query, *args)
+
+    async def find_by_nick(self,
+            nickname: str
+            ) -> Sequence[Tuple[int, datetime]]:
+
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param   = str(self.to_search(pattern, SearchType.NICK))
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
+            return await self._find_cliconns(
+                "WHERE search_nick LIKE $1",
+                param
+            )
 
-        return [row[0] for row in rows]
+    async def find_by_user(self,
+            username: str
+            ) -> Sequence[Tuple[int, datetime]]:
 
-    async def find_by_user(self, username: str) -> List[int]:
-        query = """
-            SELECT id
-            FROM cliconn
-            WHERE search_user LIKE $1
-            ORDER BY ts DESC
-        """
         pattern = glob_to_sql(lex_glob_pattern(username))
         param   = str(self.to_search(pattern, SearchType.USER))
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
+            return await self._find_cliconns(
+                "WHERE search_user LIKE $1",
+                param
+            )
 
-        return [row[0] for row in rows]
+    async def find_by_host(self,
+            hostname: str
+            ) -> Sequence[Tuple[int, datetime]]:
 
-    async def find_by_host(self, hostname: str) -> List[int]:
-        query = """
-            SELECT id
-            FROM cliconn
-            WHERE search_host LIKE $1
-            ORDER BY ts DESC
-        """
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param   = str(self.to_search(pattern, SearchType.HOST))
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
-
-        return [row[0] for row in rows]
+            return await self._find_cliconns(
+                "WHERE search_host LIKE $1",
+                param
+            )
 
     async def find_by_ip(self,
             ip: Union[IPv4Address, IPv6Address]
-            ) -> List[int]:
+            ) -> Sequence[Tuple[int, datetime]]:
 
-        query = """
-            SELECT id
-            FROM cliconn
-            WHERE ip = $1
-            ORDER BY ts DESC
-        """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, ip)
-        return [row[0] for row in rows]
+            return await self._find_cliconns("WHERE ip = $1", ip)
 
     async def find_by_cidr(self,
             cidr: Union[IPv4Network, IPv6Network]
-            ) -> List[int]:
+            ) -> Sequence[Tuple[int, datetime]]:
 
-        query = """
-            SELECT id
-            FROM cliconn
-            WHERE ip << $1
-            ORDER BY ts DESC
-        """
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, cidr)
-        return [row[0] for row in rows]
+            return await self._find_cliconns("WHERE ip << $1", cidr)
 
-    async def find_by_ip_glob(self, glob: str) -> List[int]:
-        query  = """
-            SELECT id
-            FROM cliconn
-            WHERE TEXT(ip) LIKE $1
-            ORDER BY ts DESC
-        """
+    async def find_by_ip_glob(self,
+            glob: str
+            ) -> Sequence[Tuple[int, datetime]]:
+
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param   = str(self.to_search(pattern, SearchType.HOST))
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, param)
-        return [row[0] for row in rows]
+            return await self._find_cliconns(
+                "WHERE TEXT(ip) LIKE $1",
+                param
+            )
 
 class CliexitTable(Table):
     async def add(self, cliconn_id: int):
