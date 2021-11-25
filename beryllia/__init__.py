@@ -347,32 +347,41 @@ class Server(BaseServer):
             db   = self.database
             now  = datetime.utcnow()
 
+            cliconns_: List[Tuple[int, datetime]] = []
             if   type == "nick":
-                ids = await self.database.cliconn.find_by_nick(query)
+                cliconns_ += await db.cliconn.find_by_nick(query)
             elif type == "user":
-                ids = await self.database.cliconn.find_by_user(query)
+                cliconns_ += await db.cliconn.find_by_user(query)
             elif type == "host":
-                ids = await self.database.cliconn.find_by_host(query)
+                cliconns_ += await db.cliconn.find_by_host(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
-                    ids = await db.cliconn.find_by_ip(ip)
+                    cliconns_ += await db.cliconn.find_by_ip(ip)
                 elif (cidr := try_parse_cidr(query)) is not None:
-                    ids = await db.cliconn.find_by_cidr(cidr)
+                    cliconns_ += await db.cliconn.find_by_cidr(cidr)
                 elif looks_like_glob(query):
-                    ids = await db.cliconn.find_by_ip_glob(query)
+                    cliconns_ += await db.cliconn.find_by_ip_glob(query)
                 else:
                     return [f"'{query}' does not look like an IP address"]
             else:
                 return [f"unknown query type '{type}'"]
 
+            # cut out duplicates
+            # the database code does this already, but we might compile from
+            # multiple database calls
+            cliconns = sorted(
+                set(cliconns_), key=lambda c: c[1], reverse=True
+            )
+            # cut it to 3 results. database code also does this, but see above
+            cliconns = cliconns[:3]
+
             outs: List[str] = []
-            for id in ids[:3]:
-                c   = await db.cliconn.get(id)
-                cts = pretty_delta(now-c.ts)
+            for cliconn_id, _ in cliconns:
+                cliconn   = await self.database.cliconn.get(cliconn_id)
+                cts_human = pretty_delta(now-cliconn.ts)
                 outs.append(
-                    f"\x02{cts}\x02 ago -"
-                    f" {c.nickname}!{c.username}@{c.hostname}"
-                    f" [{c.realname}]"
+                    f"\x02{cts_human}\x02 ago -"
+                    f" {cliconn.nuh()} [{cliconn.realname}]"
                 )
             return outs or ["no results"]
         else:
