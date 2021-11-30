@@ -359,6 +359,7 @@ class Server(BaseServer):
             cliconns_: List[Tuple[int, datetime]] = []
             if   type == "nick":
                 cliconns_ += await db.cliconn.find_by_nick(query)
+                cliconns_ += await db.nick_change.find_cliconn(query)
             elif type == "user":
                 cliconns_ += await db.cliconn.find_by_user(query)
             elif type == "host":
