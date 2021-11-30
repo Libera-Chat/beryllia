@@ -151,7 +151,7 @@ async def get_klines(server: Server) -> Set[str]:
             user = stats_line.params[4]
             host = stats_line.params[2]
             masks.add(f"{user}@{host}")
-        elif (wait := wait - 1) == 0
+        elif (wait := wait - 1) == 0:
             break
     return masks
 
