@@ -63,9 +63,12 @@ class Server(BaseServer):
     async def _compare_klines(self):
         klines_db  = await self.database.kline.list_active()
         klines_irc = await get_klines(self)
-        for kline_gone in set(klines_db) - klines_irc:
-            kline_id = klines_db[kline_gone]
-            await self.database.kline_remove.add(kline_id, None, None)
+
+        # None if we didn't have permission to do it
+        if klines_irc is not None:
+            for kline_gone in set(klines_db) - klines_irc:
+                kline_id = klines_db[kline_gone]
+                await self.database.kline_remove.add(kline_id, None, None)
         # TODO: add new k-lines to database?
 
     async def line_read(self, line: Line):

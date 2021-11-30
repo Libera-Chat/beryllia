@@ -132,13 +132,16 @@ async def get_statsp(server: Server) -> List[Tuple[str, str]]:
 
 RPL_STATSKLINE = "216"
 RPL_ENDOFSTATS = "219"
+ERR_NOPRIVS    = "723"
 # i call these "gline"s but brolanum calls them "propagated kline"s which i
 # think is silly
 STATS_GLINE_LINE = Response(RPL_STATSKLINE, [SELF, "g", ANY, "*", ANY, ANY])
 STATS_KLINE_LINE = Response(RPL_STATSKLINE, [SELF, "k", ANY, "*", ANY, ANY])
 STATS_GLINE_END  = Response(RPL_ENDOFSTATS, [SELF, "g"])
 STATS_KLINE_END  = Response(RPL_ENDOFSTATS, [SELF, "k"])
-async def get_klines(server: Server) -> Set[str]:
+STATS_NOPRIVS    = Response(ERR_NOPRIVS,    [SELF, ANY])
+
+async def get_klines(server: Server) -> Optional[Set[str]]:
     await server.send(build("STATS", ["g"]))
     await server.send(build("STATS", ["k"]))
     masks: Set[str] = set()
@@ -147,9 +150,12 @@ async def get_klines(server: Server) -> Set[str]:
     while True:
         stats_line = await server.wait_for({
             STATS_GLINE_LINE, STATS_KLINE_LINE,
-            STATS_GLINE_END,  STATS_KLINE_END
+            STATS_GLINE_END,  STATS_KLINE_END,
+            STATS_NOPRIVS
         })
-        if stats_line.command == RPL_STATSKLINE:
+        if stats_line.command == ERR_NOPRIVS:
+            return None
+        elif stats_line.command == RPL_STATSKLINE:
             user = stats_line.params[4]
             host = stats_line.params[2]
             masks.add(f"{user}@{host}")
