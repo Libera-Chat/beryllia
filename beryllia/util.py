@@ -136,7 +136,8 @@ RPL_ENDOFSTATS = "219"
 # think is silly
 STATS_GLINE_LINE = Response(RPL_STATSKLINE, [SELF, "g", ANY, "*", ANY, ANY])
 STATS_KLINE_LINE = Response(RPL_STATSKLINE, [SELF, "k", ANY, "*", ANY, ANY])
-STATS_END        = Response(RPL_ENDOFSTATS, [SELF, "g"])
+STATS_GLINE_END  = Response(RPL_ENDOFSTATS, [SELF, "g"])
+STATS_KLINE_END  = Response(RPL_ENDOFSTATS, [SELF, "k"])
 async def get_klines(server: Server) -> Set[str]:
     await server.send(build("STATS", ["g"]))
     await server.send(build("STATS", ["k"]))
@@ -145,7 +146,8 @@ async def get_klines(server: Server) -> Set[str]:
     wait = 2
     while True:
         stats_line = await server.wait_for({
-            STATS_GLINE_LINE, STATS_KLINE_LINE, STATS_END
+            STATS_GLINE_LINE, STATS_KLINE_LINE,
+            STATS_GLINE_END,  STATS_KLINE_END
         })
         if stats_line.command == RPL_STATSKLINE:
             user = stats_line.params[4]
