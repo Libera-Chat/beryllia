@@ -36,9 +36,9 @@ class KLineTable(Table):
 
             LEFT JOIN kline_remove
             ON kline.id = kline_remove.kline_id
-            AND kline_remove.ts IS NULL
 
-            WHERE kline.expire > NOW()
+            WHERE kline_remove.ts IS NULL
+            AND kline.expire > NOW()::TIMESTAMP
         """
         async with self.pool.acquire() as conn:
             return dict(await conn.fetch(query))
