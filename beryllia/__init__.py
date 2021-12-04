@@ -323,7 +323,8 @@ class Server(BaseServer):
                     remover  = remove.oper or "unknown"
                     remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
                 elif kline.expire < now:
-                    remove_s = "\x0303expired\x03"
+                    ts_since = pretty_delta(now-kline.expire)
+                    remove_s = f"\x0303expired {ts_since} ago\x03"
                 else:
                     ts_left  = pretty_delta(kline.expire-now)
                     remove_s = f"\x0304{ts_left} remaining\x03"
