@@ -1,5 +1,5 @@
 import re, traceback
-from datetime  import timedelta
+from datetime  import datetime, timedelta
 from enum      import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
@@ -178,6 +178,16 @@ def try_parse_cidr(
 
     try:
         return ip_network(cidr, strict=False)
+    except ValueError:
+        return None
+
+def try_parse_ts(ts: str) -> Optional[datetime]:
+    try:
+        return datetime.strptime(ts, "%Y-%m-%d %H:%M")
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(ts, "%Y/%m/%d %H.%M")
     except ValueError:
         return None
 
