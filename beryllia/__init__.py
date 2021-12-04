@@ -298,7 +298,6 @@ class Server(BaseServer):
                 klines_ += await db.kline_reject.find_by_host(query)
             elif type == "ts":
                 if (dt := try_parse_ts(queryv)) is not None:
-                    print(dt)
                     klines_ += await db.kline.find_by_ts(dt)
                 else:
                     return [f"'{queryv}' does not look like a timestamp"]
