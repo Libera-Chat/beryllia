@@ -89,7 +89,7 @@ class KLineTable(Table):
 
     async def find_by_ts(self,
             ts:    datetime,
-            fudge: int = 5
+            fudge: int = 1
             ) -> Collection[Tuple[int, datetime]]:
 
         query = """
@@ -100,7 +100,7 @@ class KLineTable(Table):
                         DATE_TRUNC('minute', ts) - $1
                     )
                 )
-            ) <= $2
+            ) / 60 <= $2
         """
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, ts, fudge)
