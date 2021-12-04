@@ -85,3 +85,22 @@ class KLineTable(Table):
         ]
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
+
+
+    async def find_by_ts(self,
+            ts:    datetime,
+            fudge: int = 1
+            ) -> Collection[Tuple[int, datetime]]:
+
+        query = """
+            SELECT id, ts FROM kline
+            WHERE ABS(
+                EXTRACT(
+                    EPOCH FROM (
+                        DATE_TRUNC('minute', ts) - $1
+                    )
+                )
+            ) / 60 <= $2
+        """
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(query, ts, fudge)

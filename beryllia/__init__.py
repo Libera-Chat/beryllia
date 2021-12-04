@@ -16,8 +16,10 @@ from ircrobots.matching import ANY, Folded, Response, SELF
 from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
+
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
-from .util      import try_parse_cidr, try_parse_ip, looks_like_glob
+from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
+from .util      import looks_like_glob
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
@@ -275,12 +277,13 @@ class Server(BaseServer):
             return ["unknown command"]
 
     async def cmd_kcheck(self, nick: str, sargs: str):
-        args = sargs.split(None, 3)
+        args = sargs.split(None, 1)
         if len(args) > 1:
-            type, query, *args = args
-            type = type.lower()
-            db   = self.database
-            now  = datetime.utcnow()
+            type, queryv = args
+            query = queryv.split()[0]
+            type  = type.lower()
+            db    = self.database
+            now   = datetime.utcnow()
 
             limit = 3
             if args and (limit_s := args[0]).isdigit():
@@ -293,6 +296,11 @@ class Server(BaseServer):
             elif type == "host":
                 klines_ += await db.kline_kill.find_by_host(query)
                 klines_ += await db.kline_reject.find_by_host(query)
+            elif type == "ts":
+                if (dt := try_parse_ts(queryv)) is not None:
+                    klines_ += await db.kline.find_by_ts(dt)
+                else:
+                    return [f"'{queryv}' does not look like a timestamp"]
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
                     klines_ += await db.kline_kill.find_by_ip(ip)
