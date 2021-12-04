@@ -47,7 +47,7 @@ class CliconnTable(Table):
         if account is not None:
             search_acc = str(self.to_search(account, SearchType.NICK))
 
-        query1 = """
+        query = """
             INSERT INTO cliconn (
                 nickname,
                 search_nick,
@@ -78,8 +78,9 @@ class CliconnTable(Table):
                 $12,
                 NOW()::TIMESTAMP
             )
+            RETURNING id
         """
-        args1 = [
+        args = [
             nickname,
             str(self.to_search(nickname, SearchType.NICK)),
             username,
@@ -93,17 +94,9 @@ class CliconnTable(Table):
             ip,
             server
         ]
-        query2 = """
-            SELECT id
-            FROM cliconn
-            WHERE nickname=$1
-            ORDER BY ts DESC
-            LIMIT 1
-        """
 
         async with self.pool.acquire() as conn:
-            await conn.execute(query1, *args1)
-            return await conn.fetchval(query2, nickname)
+            return await conn.fetchval(query, *args)
 
     async def _find_cliconns(self,
             where: str,

@@ -72,6 +72,7 @@ class KLineTable(Table):
             INSERT INTO kline
             (mask, source, oper, duration, reason, ts, expire)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
         """
         args = [
             mask,
@@ -83,6 +84,4 @@ class KLineTable(Table):
             utcnow + timedelta(seconds=duration)
         ]
         async with self.pool.acquire() as conn:
-            await conn.execute(query, *args)
-
-        return await self.find_active(mask) or -1 # -1 to fix typehint
+            return await conn.fetchval(query, *args)
