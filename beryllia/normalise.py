@@ -11,6 +11,7 @@ class SearchType(Enum):
     USER = 2
     REAL = 3
     HOST = 4
+    TAG  = 5
 
 class SearchNormaliser(object):
     def normalise(self,

@@ -30,6 +30,8 @@ RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
+RE_KLINETAG  = re.compile("%([a-zA-Z]+)")
+
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
 
@@ -188,6 +190,13 @@ class Server(BaseServer):
                     source, oper, mask, int(duration)*60, reason
                 )
 
+                for tag_match in RE_KLINETAG.finditer(reason):
+                    tag = tag_match.group(1)
+                    if not await self.database.kline_tag.exists(id, tag):
+                        await self.database.kline_tag.add(
+                            id, tag, source, oper
+                        )
+
                 # if an existing k-line is being extended/updated, update
                 # kills affected by the first k-line
                 if old_id is not None:
@@ -308,6 +317,8 @@ class Server(BaseServer):
                     klines_ += await db.kline.find_by_ts(dt)
                 else:
                     return [f"'{queryv}' does not look like a timestamp"]
+            elif type == "tag":
+                klines_ += await db.kline_tag.find(query)
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
                     klines_ += await db.kline_kill.find_by_ip(ip)
