@@ -22,7 +22,7 @@ async def main(config: Config):
         realname=config.realname,
         password=config.password,
         sasl=SASLUserPass(sasl_user, sasl_pass),
-        autojoin=[config.channel]
+        autojoin=[config.log]+list(config.channels)
     )
     await bot.add_server(host, params)
     await asyncio.gather(

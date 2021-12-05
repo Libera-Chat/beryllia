@@ -73,6 +73,9 @@ class Server(BaseServer):
                 await self.database.kline_remove.add(kline_id, None, None)
         # TODO: add new k-lines to database?
 
+    async def _log(self, text: str):
+        await self.send(build("PRIVMSG", [self._config.log, text]))
+
     async def line_read(self, line: Line):
         now = time.monotonic()
 
@@ -192,6 +195,10 @@ class Server(BaseServer):
                     kills = await db.kline_kill.find_by_kline(old_id)
                     for kill in kills:
                         await db.kline_kill.set_kline(kill.id, id)
+
+                await self._log(
+                    f"KLINE:NEW: \2{id}\2 by {oper}: {mask} {reason}"
+                )
 
             elif p_klinedel is not None:
                 source = p_klinedel.group("source")
