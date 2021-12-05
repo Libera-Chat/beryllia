@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from os.path     import expanduser
 from re          import compile as re_compile
-from typing      import Optional, Tuple
+from typing      import Optional, Sequence, Tuple
 
 import yaml
 
@@ -12,7 +12,8 @@ class Config(object):
     username: str
     realname: str
     password: str
-    channel:  str
+    channels: Sequence[str]
+    log:      str
 
     sasl: Tuple[str, str]
     oper: Tuple[str, str, str]
@@ -47,7 +48,8 @@ def load(filepath: str):
         config_yaml.get("username", nickname),
         config_yaml.get("realname", nickname),
         config_yaml["password"],
-        config_yaml["channel"],
+        config_yaml["channels"],
+        config_yaml["log"],
         (config_yaml["sasl"]["username"], config_yaml["sasl"]["password"]),
         (oper_name, oper_file, oper_pass),
         config_yaml["database"]["user"],
