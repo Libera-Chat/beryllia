@@ -5,7 +5,8 @@ nickname: beryllia
 # optional
 #realname: beryllia
 password: beryllia:hunter2
-channel: "#libera-klines"
+channels: []
+log: "#libera-klines"
 
 sasl:
   username: beryllia
