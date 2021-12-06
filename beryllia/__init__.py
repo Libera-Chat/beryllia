@@ -74,7 +74,8 @@ class Server(BaseServer):
         # TODO: add new k-lines to database?
 
     async def _log(self, text: str):
-        await self.send(build("PRIVMSG", [self._config.log, text]))
+        if self._config.log is not None:
+            await self.send(build("PRIVMSG", [self._config.log, text]))
 
     async def line_read(self, line: Line):
         now = time.monotonic()
