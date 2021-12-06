@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
 from ipaddress   import IPv4Network, IPv6Network
-from typing      import Any, Collection, Dict, Optional, Tuple, Union
+from typing      import (Any, Collection, Dict, Optional, Sequence, Tuple,
+    Union)
 
 from .common     import Table
 from ..normalise import SearchType
@@ -29,6 +30,15 @@ class KLineTable(Table):
             row = await conn.fetchrow(query, id)
 
         return DBKLine(*row)
+
+    async def exists(self, id: int) -> bool:
+        query = """
+            SELECT 1
+                FROM kline
+            WHERE id = $1
+        """
+        async with self.pool.acquire() as conn:
+            return bool(await conn.fetchval(query, id))
 
     async def list_active(self) -> Dict[str, int]:
         query = """
@@ -104,3 +114,14 @@ class KLineTable(Table):
         """
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, ts, fudge)
+
+    async def find_last_by_oper(self, oper: str, count: int) -> Sequence[int]:
+        query = """
+            SELECT id FROM kline
+            WHERE oper = $1
+            ORDER BY ts DESC
+            LIMIT $2
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, oper, count)
+        return [r[0] for r in rows]

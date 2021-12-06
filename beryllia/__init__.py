@@ -1,11 +1,12 @@
 import asyncio, ipaddress, re, time
 from collections import OrderedDict
+from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
 from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
-from irctokens import build, Line
+from irctokens import build, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
@@ -34,6 +35,12 @@ RE_KLINETAG  = re.compile("%([a-zA-Z]+)")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
+
+@dataclass
+class Caller:
+    nick:   str
+    source: str
+    oper:   str
 
 class Server(BaseServer):
     database: Database
@@ -243,16 +250,19 @@ class Server(BaseServer):
                             kline_id, nickname, username, hostname, ip
                         )
 
-        elif (line.command == "PRIVMSG" and
-                not self.is_me(line.hostmask.nickname)):
+        elif (line.command == "PRIVMSG"
+                and line.source is not None
+                and not self.is_me(line.hostmask.nickname)):
 
             me  = self.nickname
-            who = line.hostmask.nickname
+            who = line.hostmask
 
             first, _, rest = line.params[1].partition(" ")
             if self.is_me(line.params[0]):
                 # private message
-                await self.cmd(who, who, first.lower(), rest, line.tags)
+                await self.cmd(
+                    who, who.nickname, first.lower(), rest, line.tags
+                )
             elif rest:
                 if first in [me, f"{me}:", f"{me},"]:
                     # highlight in channel
@@ -262,21 +272,22 @@ class Server(BaseServer):
                     )
 
     async def cmd(self,
-            who:     str,
+            who:     Hostmask,
             target:  str,
             command: str,
             args:    str,
             tags:    Optional[Dict[str, str]]
             ):
 
-        if tags and "solanum.chat/oper" in tags:
-            attrib  = f"cmd_{command}"
+        if tags and (oper := tags.get("solanum.chat/oper", "")):
+            caller = Caller(who.nickname, str(who), oper)
+            attrib = f"cmd_{command}"
             if hasattr(self, attrib):
-                outs = await getattr(self, attrib)(who, args)
+                outs = await getattr(self, attrib)(caller, args)
                 for out in outs:
                     await self.send(build("NOTICE", [target, out]))
 
-    async def cmd_help(self, nick: str, args: str):
+    async def cmd_help(self, caller: Caller, args: str):
         me      = self.nickname
         command = args.lstrip().split(" ", 1)[0]
         if not command:
@@ -292,7 +303,54 @@ class Server(BaseServer):
         else:
             return ["unknown command"]
 
-    async def cmd_kcheck(self, nick: str, sargs: str):
+    async def _ktag(self,
+            kline_id: int,
+            tag:      str,
+            caller:   Caller):
+
+        if await self.database.kline_tag.exists(kline_id, tag):
+            return [f"k-line {kline_id} is already tagged as '{tag}'"]
+        else:
+            await self.database.kline_tag.add(
+                kline_id, tag, caller.source, caller.oper
+            )
+            kline = await self.database.kline.get(kline_id)
+            kts   = pretty_delta(datetime.utcnow()-kline.ts)
+            return [
+                f"tagged {kts} old k-line"
+                f" (#{kline_id} \2{kline.mask}\2) as {tag}"
+            ]
+
+    async def cmd_ktag(self, caller: Caller, sargs: str):
+        args = sargs.split(None, 2)
+        if len(args) < 2:
+            return ["please provide a k-line ID and a tag"]
+        elif not args[0].isdigit():
+            return [f"'{args[0]}' doesn't look like a k-line ID"]
+        elif not await self.database.kline.exists(kline_id := int(args[0])):
+            return [f"k-line {kline_id} not found"]
+        else:
+            return await self._ktag(kline_id, args[1], caller)
+
+    async def cmd_ktaglast(self, caller: Caller, sargs: str):
+        args = sargs.split(None, 2)
+        if len(args) < 2:
+            return ["please provide a k-line count and tag"]
+        elif not args[0].isdigit():
+            return [f"'{args[0]}' isn't a number"]
+        else:
+            kline_ids = await self.database.kline.find_last_by_oper(
+                caller.oper, int(args[0])
+            )
+            outs: List[str] = []
+            for kline_id in kline_ids:
+                outs += await self._ktag(kline_id, args[1], caller)
+            if not outs:
+                outs = ["found no recent k-lines from you"]
+            return outs
+
+
+    async def cmd_kcheck(self, caller: Caller, sargs: str):
         args = sargs.split(None, 1)
         if len(args) > 1:
             type, queryv = args
@@ -378,7 +436,7 @@ class Server(BaseServer):
         else:
             return ["please provide a type and query"]
 
-    async def cmd_cliconn(self, nick: str, sargs: str):
+    async def cmd_cliconn(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
         if len(args) > 1:
             type, query, *_ = args
@@ -427,10 +485,7 @@ class Server(BaseServer):
         else:
             return ["please provide a type and query"]
 
-    async def cmd_statsp(self,
-            nick: str,
-            args: str):
-
+    async def cmd_statsp(self, caller: Caller, args: str):
         match = RE_DATE.search(args.strip() or "1970-01-01")
         if match is not None:
             since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
