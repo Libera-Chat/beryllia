@@ -82,6 +82,8 @@ CREATE TABLE kline_tag (
     ts          TIMESTAMP    NOT NULL,
     PRIMARY KEY (kline_id, search_tag)
 );
+-- for `!kcheck` searches
+CREATE INDEX kline_tag_search_tag ON kline_tag (search_tag);
 
 CREATE TABLE cliconn (
     id          SERIAL PRIMARY KEY,
