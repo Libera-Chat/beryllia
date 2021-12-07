@@ -1,5 +1,6 @@
 -- 16  is nickname length
 -- 10  is username length
+-- 32  is kline tag length
 -- 50  is realname length
 -- 64  is hostname length
 -- 92  is mask length
@@ -71,6 +72,18 @@ CREATE INDEX kline_reject_search_nick ON kline_reject(search_nick);
 CREATE INDEX kline_reject_search_user ON kline_reject(search_user);
 CREATE INDEX kline_reject_search_host ON kline_reject(search_host);
 CREATE INDEX kline_reject_ip          ON kline_reject(ip);
+
+CREATE TABLE kline_tag (
+    kline_id    INTEGER      NOT NULL  REFERENCES kline (id)  ON DELETE CASCADE,
+    tag         VARCHAR(32)  NOT NULL,
+    search_tag  VARCHAR(32)  NOT NULL,
+    source      VARCHAR(92)  NOT NULL,
+    oper        VARCHAR(16)  NOT NULL,
+    ts          TIMESTAMP    NOT NULL,
+    PRIMARY KEY (kline_id, search_tag)
+);
+-- for `!kcheck` searches
+CREATE INDEX kline_tag_search_tag ON kline_tag (search_tag);
 
 CREATE TABLE cliconn (
     id          SERIAL PRIMARY KEY,
