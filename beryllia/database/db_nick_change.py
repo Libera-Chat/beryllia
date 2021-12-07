@@ -20,6 +20,18 @@ class NickChangeTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
+    async def get(self, cliconn_id) -> Sequence[str]:
+        query = """
+            SELECT nickname
+            FROM nick_change
+            WHERE cliconn_id = $1
+            ORDER BY ts ASC
+        """
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, cliconn_id)
+        return [row[0] for row in rows]
+
     async def find_cliconn(self,
             nickname: str
             ) -> Sequence[Tuple[int, datetime]]:

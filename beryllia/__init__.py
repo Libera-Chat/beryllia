@@ -475,12 +475,18 @@ class Server(BaseServer):
 
             outs: List[str] = []
             for cliconn_id, _ in cliconns:
-                cliconn   = await self.database.cliconn.get(cliconn_id)
+                cliconn   = await db.cliconn.get(cliconn_id)
                 cts_human = pretty_delta(now-cliconn.ts)
+                nick_chg  = await db.nick_change.get(id)
+
                 outs.append(
                     f"\x02{cts_human}\x02 ago -"
                     f" {cliconn.nuh()} [{cliconn.realname}]"
                 )
+                if nick_chg:
+                    nick_chg_s = ", ".join(nick_chg)
+                    outs.append(f"  nicks: {nick_chg_s}")
+
             return outs or ["no results"]
         else:
             return ["please provide a type and query"]
