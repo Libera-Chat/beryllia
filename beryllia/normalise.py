@@ -12,6 +12,7 @@ class SearchType(Enum):
     REAL = 3
     HOST = 4
     TAG  = 5
+    MASK = 6
 
 class SearchNormaliser(object):
     def normalise(self,
@@ -29,7 +30,8 @@ class RFC1459SearchNormaliser(SearchNormaliser):
         out = CompositeString()
         for part in input:
             if part.type == CompositeStringType.TEXT:
-                if type in {SearchType.NICK, SearchType.USER}:
+                if type in {
+                        SearchType.NICK, SearchType.USER, SearchType.MASK}:
                     text = casefold("rfc1459", part.text)
                 else:
                     text = part.text.lower()
