@@ -424,7 +424,7 @@ class Server(BaseServer):
                     outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
 
                 outs.append(
-                    "  \x02K-Line\x02:"
+                    f"  K-Line \x02#{kline_id}\x02:"
                     f" {kline.mask}"
                     f" \x02{kts_human} ago\x02"
                     f" by \x02{kline.oper}\x02"
