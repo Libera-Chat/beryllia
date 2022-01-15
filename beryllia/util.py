@@ -181,14 +181,21 @@ def try_parse_cidr(
     except ValueError:
         return None
 
+TS_FORMATS = [
+    # ISO8601 without timezone
+    "%Y-%m-%d %H:%M",
+    # strange format ERR_YOUREBANNEDCREEP uses
+    "%Y/%m/%d %H.%M",
+    # ISO8601 with timezone offset
+    "%Y-%m-%d %H:%M%z",
+]
 def try_parse_ts(ts: str) -> Optional[datetime]:
-    try:
-        return datetime.strptime(ts, "%Y-%m-%d %H:%M")
-    except ValueError:
-        pass
-    try:
-        return datetime.strptime(ts, "%Y/%m/%d %H.%M")
-    except ValueError:
+    for ts_format in TS_FORMATS:
+        try:
+            return datetime.strptime(ts, ts_format)
+        except ValueError:
+            pass
+    else:
         return None
 
 class CompositeStringType(Enum):
