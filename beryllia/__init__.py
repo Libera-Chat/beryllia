@@ -371,6 +371,8 @@ class Server(BaseServer):
             elif type == "host":
                 klines_ += await db.kline_kill.find_by_host(query)
                 klines_ += await db.kline_reject.find_by_host(query)
+            elif type == "mask":
+                klines_ += await db.kline.find_by_mask_glob(query)
             elif type == "ts":
                 if (dt := try_parse_ts(queryv)) is not None:
                     klines_ += await db.kline.find_by_ts(dt)

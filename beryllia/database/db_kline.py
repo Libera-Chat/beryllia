@@ -80,12 +80,13 @@ class KLineTable(Table):
         utcnow = datetime.utcnow()
         query  = """
             INSERT INTO kline
-            (mask, source, oper, duration, reason, ts, expire)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            (mask, search_mask, source, oper, duration, reason, ts, expire)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id
         """
         args = [
             mask,
+            str(self.to_search(mask, SearchType.MASK)),
             source,
             oper,
             duration,
@@ -125,3 +126,27 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(query, oper, count)
         return [r[0] for r in rows]
+
+    async def _find_klines(self,
+            where: str,
+            *args: Any
+            ) -> Collection[Tuple[int, datetime]]:
+
+        query = f"""
+            SELECT id, ts
+            FROM kline
+            {where}
+        """
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, *args)
+
+        return rows
+
+    async def find_by_mask_glob(self,
+            mask: str
+            ) -> Collection[Tuple[int, datetime]]:
+
+        pattern = glob_to_sql(lex_glob_pattern(mask))
+        param   = str(self.to_search(pattern, SearchType.MASK))
+        return await self._find_klines("WHERE search_mask LIKE $1", param)
