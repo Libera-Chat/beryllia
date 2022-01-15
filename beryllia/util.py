@@ -1,5 +1,5 @@
 import re, traceback
-from datetime  import datetime, timedelta
+from datetime  import datetime, timedelta, timezone
 from enum      import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
@@ -181,6 +181,12 @@ def try_parse_cidr(
     except ValueError:
         return None
 
+def forgettz(d):
+    if d.tzinfo is not None:
+        return d.astimezone(tz=timezone.utc).replace(tzinfo=None)
+    else:
+        return d
+
 TS_FORMATS = [
     # ISO8601 without timezone
     "%Y-%m-%d %H:%M",
@@ -192,7 +198,7 @@ TS_FORMATS = [
 def try_parse_ts(ts: str) -> Optional[datetime]:
     for ts_format in TS_FORMATS:
         try:
-            return datetime.strptime(ts, ts_format)
+            return forgettz(datetime.strptime(ts, ts_format))
         except ValueError:
             pass
     else:
