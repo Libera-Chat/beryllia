@@ -42,7 +42,7 @@ class RFC1459SearchNormaliser(SearchNormaliser):
                         user, _, host = part.text.partition("@")
                         text = casefold("rfc1459", user)
                         text += "@"
-                        text += host.casefold
+                        text += casefold("rfc1459", host)
                 else:
                     text = part.text.lower()
 
