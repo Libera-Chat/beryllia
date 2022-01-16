@@ -8,6 +8,7 @@ from .db_kline_kill   import *
 from .db_kline_reject import *
 from .db_kline_remove import *
 from .db_kline_tag    import *
+from .db_preference   import *
 
 from ..normalise  import SearchType, SearchNormaliser
 
@@ -26,6 +27,7 @@ class Database(object):
         self.cliexit      = CliexitTable(pool, normaliser)
         self.nick_change  = NickChangeTable(pool, normaliser)
         self.statsp       = StatsPTable(pool, normaliser)
+        self.preference   = PreferenceTable(pool, normaliser)
 
     @classmethod
     async def connect(self,

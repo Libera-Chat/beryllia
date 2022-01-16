@@ -3,6 +3,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime    import datetime, timedelta
 from ipaddress   import IPv4Address, IPv6Address
+from json        import loads as json_loads
 from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
@@ -42,6 +43,10 @@ class Caller:
     source: str
     oper:   str
 
+PREFERENCES: Dict[str, type] = {
+    "statsp": bool
+}
+
 class Server(BaseServer):
     database: Database
 
@@ -69,7 +74,11 @@ class Server(BaseServer):
         if self._database_init:
             async with self.read_lock:
                 for oper, mask in await get_statsp(self):
-                    await self.database.statsp.add(oper, mask, now)
+                    pref = await self.database.preference.get(
+                        oper, "statsp"
+                    )
+                    if pref is None or pref:
+                        await self.database.statsp.add(oper, mask, now)
 
     async def _compare_klines(self):
         klines_db  = await self.database.kline.list_active()
@@ -512,6 +521,22 @@ class Server(BaseServer):
         else:
             return [f"that's not a date"]
 
+    async def cmd_pref(self, caller: Caller, sargs: str):
+        args = sargs.split(None, 1)
+        db   = self.database
+        if len(args) == 0:
+            keys = ", ".join(sorted(PREFERENCES.keys()))
+            return [f"available preferences: {keys}"]
+        elif not (key := args[0].lower()) in PREFERENCES:
+            return [f"unknown preference '{key}'"]
+        elif len(args) == 1:
+            value = await db.preference.get(caller.oper, key := args[0].lower())
+            return [f"{key} == {value}"]
+        elif not type(value := json_loads(args[1])) == PREFERENCES[key]:
+            return [f"invalid value type '{type(value)}' for key {key}"]
+        else:
+            await db.preference.set(caller.oper, key, value)
+            return [f"set {key} to {value}"]
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")

@@ -133,4 +133,10 @@ CREATE TABLE statsp (
 );
 CREATE INDEX statsp_ts ON statsp(ts);
 
+CREATE TABLE preference (
+    oper   VARCHAR(16)   NOT NULL,
+    key    VARCHAR(32)   NOT NULL,
+    value  VARCHAR(260)  NOT NULL
+);
+
 COMMIT;
