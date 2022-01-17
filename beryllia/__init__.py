@@ -31,7 +31,7 @@ RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
-RE_KLINETAG  = re.compile("%([a-zA-Z]+)")
+RE_KLINETAG  = re.compile(r"%([^\s%]+)")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
@@ -331,7 +331,7 @@ class Server(BaseServer):
         elif not await self.database.kline.exists(kline_id := int(args[0])):
             return [f"k-line {kline_id} not found"]
         else:
-            return await self._ktag(kline_id, args[1], caller)
+            return await self._ktag(kline_id, args[1].lstrip("%"), caller)
 
     async def cmd_ktaglast(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
@@ -345,7 +345,7 @@ class Server(BaseServer):
             )
             outs: List[str] = []
             for kline_id in kline_ids:
-                outs += await self._ktag(kline_id, args[1], caller)
+                outs += await self._ktag(kline_id, args[1].lstrip("%"), caller)
             if not outs:
                 outs = ["found no recent k-lines from you"]
             return outs
