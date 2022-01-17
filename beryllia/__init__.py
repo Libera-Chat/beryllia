@@ -44,7 +44,8 @@ class Caller:
     oper:   str
 
 PREFERENCES: Dict[str, type] = {
-    "statsp": bool
+    "statsp": bool,
+    "knag": bool
 }
 
 class Server(BaseServer):
@@ -94,6 +95,15 @@ class Server(BaseServer):
     async def _log(self, text: str):
         if self._config.log is not None:
             await self.send(build("PRIVMSG", [self._config.log, text]))
+    async def _knag(self, oper: str, nick: str, kline_id: int):
+        pref = await self.database.preference.get(oper, "knag")
+        if pref == True: # == True because it could be None
+            kline = await self.database.kline.get(kline_id)
+            out = (
+                f"k-line \2#{kline_id}\2 ({kline.mask}) set without a tag;"
+                f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
+            )
+            await self.send(build("NOTICE", [nick, out]))
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -207,7 +217,7 @@ class Server(BaseServer):
                     source, oper, mask, int(duration)*60, reason
                 )
 
-                for tag_match in RE_KLINETAG.finditer(reason):
+                for tag_match in (tags := list(RE_KLINETAG.finditer(reason))):
                     tag = tag_match.group(1)
                     if not await self.database.kline_tag.exists(id, tag):
                         await self.database.kline_tag.add(
@@ -221,6 +231,9 @@ class Server(BaseServer):
                     kills = await db.kline_kill.find_by_kline(old_id)
                     for kill in kills:
                         await db.kline_kill.set_kline(kill.id, id)
+
+                if not tags:
+                    await self._knag(oper, source.split("!", 1)[0], id)
 
                 await self._log(
                     f"KLINE:NEW: \2{id}\2 by {oper}: {mask} {reason}"
