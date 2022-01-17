@@ -480,7 +480,7 @@ class Server(BaseServer):
             for cliconn_id, _ in cliconns:
                 cliconn   = await db.cliconn.get(cliconn_id)
                 cts_human = pretty_delta(now-cliconn.ts)
-                nick_chg  = await db.nick_change.get(id)
+                nick_chg  = await db.nick_change.get(cliconn_id)
 
                 outs.append(
                     f"\x02{cts_human}\x02 ago -"
