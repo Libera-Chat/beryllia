@@ -80,31 +80,9 @@ async def oper_up(
                 await server.send(build("CHALLENGE", [f"+{retort}"]))
                 break
 
-async def get_whois(
-        server:   Server,
-        nickname: str
-        ) -> Optional[Tuple[str, Optional[str]]]:
-
-    await server.send(build("WHOIS", [nickname]))
-
-    whois_mask = Response(RPL_WHOISUSER,     [SELF, Folded(nickname)])
-    whois_oper = Response(RPL_WHOISOPERATOR, [SELF, Folded(nickname)])
-    whois_end  = Response(RPL_ENDOFWHOIS,    [SELF, Folded(nickname)])
-
-    whois_line = await server.wait_for({whois_mask, whois_end})
-    if whois_line.command == RPL_WHOISUSER:
-        nick, user, host = whois_line.params[1:4]
-        mask = f"{nick}!{user}@{host}"
-
-        whois_line = await server.wait_for({whois_oper, whois_end})
-        if whois_line.command == RPL_WHOISOPERATOR:
-            match = RE_OPERNAME.search(whois_line.params[2])
-            if match is not None:
-                return (mask, match.group(1))
-        return (mask, None)
-    else:
-        return None
-
+RE_STATSPOPER = re.compile(
+    r"^(?P<nick>\S+) \((?P<user>\S+)@(?P<host>\S+)\) \{(?P<oper>\S+)\}$"
+)
 async def get_statsp(server: Server) -> List[Tuple[str, str]]:
     await server.send(build("STATS", ["p"]))
 
@@ -120,13 +98,14 @@ async def get_statsp(server: Server) -> List[Tuple[str, str]]:
             break
 
     opers: List[Tuple[str, str]] = []
-    for statsp_text in statsp_texts[:-1]:
-        nick, *_ = statsp_text.split(" ", 1)
-        whois    = await get_whois(server, nick)
-        if whois is not None:
-            mask, oper = whois
-            if oper is not None:
-                opers.append((oper, mask))
+    for statsp_text in statsp_texts:
+        if (match := RE_STATSPOPER.search(statsp_text)) is not None:
+            nick = match.group("nick")
+            user = match.group("user")
+            host = match.group("host")
+            oper = match.group("oper")
+            mask = f"{nick}!{user}@{host}"
+            opers.append((oper, mask))
 
     return opers
 
