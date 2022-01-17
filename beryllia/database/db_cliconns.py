@@ -177,10 +177,10 @@ class CliconnTable(Table):
             )
 
 class CliexitTable(Table):
-    async def add(self, cliconn_id: int):
+    async def add(self, cliconn_id: int, reason: str):
         query = """
-            INSERT INTO cliexit (cliconn_id, ts)
-            VALUES ($1, NOW()::TIMESTAMP)
+            INSERT INTO cliexit (cliconn_id, reason, ts)
+            VALUES ($1, $2, NOW()::TIMESTAMP)
         """
         async with self.pool.acquire() as conn:
-            await conn.execute(query, cliconn_id)
+            await conn.execute(query, cliconn_id, reason)

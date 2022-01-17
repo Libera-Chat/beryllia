@@ -24,7 +24,7 @@ from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
 from .util      import looks_like_glob
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
-RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) .* \[(?P<ip>\S+)\]$")
+RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
 RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K-Lined user) (?P<nickname>\S+)\[[^]]+\] .(?P<mask>\S+).$")
@@ -188,6 +188,7 @@ class Server(BaseServer):
                 nickname = p_cliexit.group("nick")
                 username = p_cliexit.group("user")
                 hostname = p_cliexit.group("host")
+                reason   = p_cliexit.group("reason")
 
                 ip: Optional[Union[IPv4Address, IPv6Address]] = None
                 if not (ip_str := p_cliexit.group("ip")) == "0":
@@ -195,7 +196,7 @@ class Server(BaseServer):
 
                 if nickname in self._cliconns:
                     cliconn_id = self._cliconns.pop(nickname)
-                    await self.database.cliexit.add(cliconn_id)
+                    await self.database.cliexit.add(cliconn_id, reason)
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)
