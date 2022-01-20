@@ -443,13 +443,8 @@ class Server(BaseServer):
                 rejects = await db.kline_reject.find_by_kline(kline_id)
                 affected: List[NickUserHost] = list(kills) + list(rejects)
 
-                masks = sorted(set(nuh.nuh() for nuh in affected))
-                outs.append("affected: " + ", ".join(masks[:MASK_MAX]))
-                if len(masks) > MASK_MAX:
-                    outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
-
                 outs.append(
-                    f"  K-Line \x02#{kline_id}\x02:"
+                    f"K-Line \x02#{kline_id}\x02:"
                     f" {kline.mask}"
                     f" \x02{kts_human} ago\x02"
                     f" by \x02{kline.oper}\x02"
@@ -457,6 +452,10 @@ class Server(BaseServer):
                     f" ({remove_s})"
                     f" {kline.reason}"
                 )
+                masks = sorted(set(nuh.nuh() for nuh in affected))
+                outs.append("  affected: " + ", ".join(masks[:MASK_MAX]))
+                if len(masks) > MASK_MAX:
+                    outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
 
             return outs or ["no results"]
         else:
