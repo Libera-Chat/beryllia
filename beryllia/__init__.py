@@ -273,7 +273,7 @@ class Server(BaseServer):
                     others = await db.kline_reject.find_by_hostname(
                         kline_id, hostname
                     )
-                    if found is None and len(others) <= self._config.rejects:
+                    if found is None and len(others) < self._config.rejects:
                         await self.database.kline_reject.add(
                             kline_id, nickname, username, hostname, ip
                         )
