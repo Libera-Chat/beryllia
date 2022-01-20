@@ -266,10 +266,14 @@ class Server(BaseServer):
 
                 kline_id = await self.database.kline.find_active(mask)
                 if kline_id is not None:
-                    found = await self.database.kline_reject.find(
+                    db = self.database
+                    found = await db.kline_reject.find(
                         kline_id, nickname, username, hostname, ip
                     )
-                    if found is None:
+                    others = await db.kline_reject.find_by_hostname(
+                        kline_id, hostname
+                    )
+                    if found is None and len(others) <= self._config.rejects:
                         await self.database.kline_reject.add(
                             kline_id, nickname, username, hostname, ip
                         )
