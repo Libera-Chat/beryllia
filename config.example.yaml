@@ -7,6 +7,8 @@ nickname: beryllia
 password: beryllia:hunter2
 channels: []
 log: "#libera-klines"
+# maximum kline rejections to store per k-line
+rejects: 20
 
 sasl:
   username: beryllia

@@ -101,6 +101,22 @@ class KLineRejectTable(KLineKillTable):
 
         return [DBKLineReject(*row) for row in rows]
 
+    async def find_by_hostname(self,
+            kline_id: int,
+            hostname: str
+            ) -> Collection[int]:
+
+        query = """
+            SELECT id
+            FROM kline_reject
+            WHERE kline_id = $1
+            AND search_host = $2
+        """
+        search_host = str(self.to_search(hostname, SearchType.HOST))
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(query, kline_id, search_host)
+        return [r[0] for r in rows]
+
     async def set_kline(self,
             reject_id: int,
             kline_id:  int):
