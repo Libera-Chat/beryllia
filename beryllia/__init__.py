@@ -32,7 +32,7 @@ RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
-RE_KLINETAG  = re.compile("%([a-zA-Z]+)")
+RE_KLINETAG  = re.compile(r"%(\S+)")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
