@@ -359,6 +359,20 @@ class Server(BaseServer):
             return [f"k-line {kline_id} not found"]
         else:
             return await self._ktag(kline_id, args[1], caller)
+    async def cmd_unktag(self, caller: Caller, sargs: str):
+        args = sargs.split(None, 2)
+        if len(args) < 2:
+            return ["please provide a k-line ID and a tag"]
+        elif not args[0].isdigit():
+            return [f"'{args[0]}' doesn't look like a k-line ID"]
+        elif not await self.database.kline.exists(kline_id := int(args[0])):
+            return [f"k-line {kline_id} not found"]
+        tag = args[1]
+        if not await self.database.kline_tag.exists(kline_id, tag):
+            return [f"k-line {kline_id} not tagged as '{tag}'"]
+        else:
+            await self.database.kline_tag.remove(kline_id, tag)
+            return [f"removed tag '{tag}' from k-line {kline_id}"]
 
     async def cmd_ktaglast(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)

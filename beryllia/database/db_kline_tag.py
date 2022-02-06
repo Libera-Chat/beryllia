@@ -27,6 +27,19 @@ class KLineTagTable(Table):
                 oper
             )
 
+    async def remove(self, kline_id: int, tag: str):
+        query = """
+            DELETE FROM kline_tag
+            WHERE kline_id = $1
+            AND search_tag = $2
+        """
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                query,
+                kline_id,
+                str(self.to_search(tag, SearchType.TAG))
+            )
+
     async def exists(self, kline_id: int, tag: str) -> bool:
         query = """
             SELECT 1 FROM kline_tag
