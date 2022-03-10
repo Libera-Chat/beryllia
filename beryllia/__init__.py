@@ -407,6 +407,14 @@ class Server(BaseServer):
                     return [f"'{queryv}' does not look like a timestamp"]
             elif type == "tag":
                 klines_ += await db.kline_tag.find(query)
+            elif type == "id":
+                if (query.isdigit()
+                        and await db.kline.exists(query_id := int(query))):
+                    # kinda annoying that we get the k-line here just to pull
+                    # out ts + id, then we use that id later to get the same
+                    # k-line again later.
+                    kline = await db.kline.get(query_id)
+                    klines_.append((query_id, kline.ts))
             elif type == "ip":
                 if (ip := try_parse_ip(query)) is not None:
                     klines_ += await db.kline_kill.find_by_ip(ip)
