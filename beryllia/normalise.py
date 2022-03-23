@@ -1,7 +1,7 @@
 from enum      import Enum
 from typing    import Deque
 
-from ircstates import casefold
+from ircstates import casefold, CaseMap
 
 from .util     import (CompositeString, CompositeStringType,
     CompositeStringText)
@@ -32,17 +32,17 @@ class RFC1459SearchNormaliser(SearchNormaliser):
         for part in input:
             if part.type == CompositeStringType.TEXT:
                 if type in {SearchType.NICK, SearchType.USER}:
-                    text = casefold("rfc1459", part.text)
+                    text = casefold(CaseMap.RFC1459, part.text)
                 elif type == SearchType.MASK:
                     if ord("@") in seen_chars:
                         text = part.text.lower()
                     elif not "@" in part.text:
-                        text = casefold("rfc1459", part.text)
+                        text = casefold(CaseMap.RFC1459, part.text)
                     else:
                         user, _, host = part.text.partition("@")
-                        text = casefold("rfc1459", user)
+                        text = casefold(CaseMap.RFC1459, user)
                         text += "@"
-                        text += casefold("rfc1459", host)
+                        text += casefold(CaseMap.RFC1459, host)
                 else:
                     text = part.text.lower()
 
