@@ -19,7 +19,7 @@ from .config    import Config
 from .database  import Database
 from .normalise import RFC1459SearchNormaliser
 
-from .util      import oper_up, pretty_delta, get_statsp, get_klines
+from .util      import oper_up, pretty_delta, get_statsp, get_klines, get_links
 from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
 from .util      import looks_like_glob
 
@@ -30,6 +30,7 @@ RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\
 RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K-Lined user) (?P<nickname>\S+)\[[^]]+\] .(?P<mask>\S+).$")
 RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
+RE_NETSPLIT  = re.compile(r"^\*{3} Notice -- Netsplit (?P<hub>\S+) <-> (?P<leaf>\S+)")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 RE_KLINETAG  = re.compile(r"%(\S+)")
@@ -64,7 +65,7 @@ class Server(BaseServer):
         self._database_init: bool = False
         self._wait_for_exit: Dict[str, str] = {}
 
-        self._cliconns: Dict[str, int] = {}
+        self._cliconns: Dict[str, Tuple[int, str]] = {} # nickname: (cliconn_id, server)
 
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
@@ -104,6 +105,15 @@ class Server(BaseServer):
                 f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
             )
             await self.send(build("NOTICE", [nick, out]))
+
+    async def _prune_cliconns(self):
+        servers = await get_links(self)
+
+        # copy the dict so we don't get a RuntimeError
+        # due to modifying the dict during iteration
+        for nick in self._cliconns.copy().keys():
+            if not self._cliconns[nick][1] in servers:
+                del self._cliconns[nick]
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -150,6 +160,7 @@ class Server(BaseServer):
             p_klineexit = RE_KLINEEXIT.search(message)
             p_klinerej  = RE_KLINEREJ.search(message)
             p_nickchg   = RE_NICKCHG.search(message)
+            p_netsplit  = RE_NETSPLIT.search(message)
 
             if p_cliconn is not None:
                 nickname = p_cliconn.group("nick")
@@ -174,14 +185,14 @@ class Server(BaseServer):
                     ip,
                     line.source
                 )
-                self._cliconns[nickname] = cliconn_id
+                self._cliconns[nickname] = (cliconn_id, line.source)
 
             elif p_nickchg is not None:
                 old_nick = p_nickchg.group("old_nick")
                 new_nick = p_nickchg.group("new_nick")
                 if old_nick in self._cliconns:
                     cliconn_id = self._cliconns.pop(old_nick)
-                    self._cliconns[new_nick] = cliconn_id
+                    self._cliconns[new_nick] = (cliconn_id, line.source)
                     await self.database.nick_change.add(cliconn_id, new_nick)
 
             elif p_cliexit is not None:
@@ -277,6 +288,11 @@ class Server(BaseServer):
                         await self.database.kline_reject.add(
                             kline_id, nickname, username, hostname, ip
                         )
+
+            elif p_netsplit is not None:
+                # prune people from self._cliconns
+                # when they're on a server that splits away
+                await self._prune_cliconns()
 
         elif (line.command == "PRIVMSG"
                 and line.source is not None
