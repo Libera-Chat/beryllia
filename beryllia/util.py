@@ -275,4 +275,4 @@ COLOURS = [
 def colourise(s: str):
     hash = hash_djb2(s)
     colour = COLOURS[hash % len(COLOURS)]
-    return f"\x03{str(colour).zfill(2)}{s}"
+    return f"\x03{str(colour).zfill(2)}{s}\x03"
