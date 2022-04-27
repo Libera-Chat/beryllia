@@ -10,21 +10,20 @@ from .cron   import cron
 async def main(config: Config):
     bot = Bot(config)
 
-    host, port, tls      = config.server
     sasl_user, sasl_pass = config.sasl
 
-    params = ConnectionParams(
-        config.nickname,
-        host,
-        port,
-        tls,
-        username=config.username,
-        realname=config.realname,
-        password=config.password,
-        sasl=SASLUserPass(sasl_user, sasl_pass),
-        autojoin=[config.log]+list(config.channels)
-    )
-    await bot.add_server(host, params)
+    params = ConnectionParams.from_hoststring(config.nickname, config.server)
+    params.username = config.username
+    params.realname = config.realname
+    params.password = config.password
+    params.sasl     = SASLUserPass(sasl_user, sasl_pass)
+
+    autojoin = list(config.channels)
+    if config.log is not None:
+        autojoin.append(config.log)
+    params.autojoin = autojoin
+
+    await bot.add_server("beryllia", params)
     await asyncio.gather(
         cron(bot),
         bot.run()
