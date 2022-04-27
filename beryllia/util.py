@@ -250,3 +250,29 @@ def glob_to_sql(glob: CompositeString) -> CompositeString:
 
 def looks_like_glob(s: str) -> bool:
     return bool(set(s) & set("?*"))
+
+def hash_djb2(s: str):
+    hash = 5381
+    for i, char in enumerate(s):
+        hash ^= ((hash<<5)+(hash>>2)+ord(char))&0xFFFFFFFFFFFFFFFF
+
+    return hash
+
+COLOURS = [
+    2,  # blue
+    3,  # green
+    4,  # red
+    5,  # brown
+    6,  # purple
+    7,  # orange
+    8,  # yellow
+    9,  # light green
+    10, # cyan
+    11, # light cyan
+    12, # light blue
+    13, # pink
+]
+def colourise(s: str):
+    hash = hash_djb2(s)
+    colour = COLOURS[hash % len(COLOURS)]
+    return f"\x03{str(colour).zfill(2)}{s}"

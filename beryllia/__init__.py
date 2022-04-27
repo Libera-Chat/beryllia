@@ -21,7 +21,7 @@ from .normalise import RFC1459SearchNormaliser
 
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
 from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util      import looks_like_glob
+from .util      import looks_like_glob, colourise
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
@@ -236,8 +236,9 @@ class Server(BaseServer):
                 if not tags:
                     await self._knag(oper, source.split("!", 1)[0], id)
 
+                oper_colour = colourise(oper)
                 await self._log(
-                    f"KLINE:NEW: \2{id}\2 by {oper}: {mask} {reason}"
+                    f"KLINE:NEW: \2{id}\2 by {oper_colour}: {mask} {reason}"
                 )
 
             elif p_klinedel is not None:
