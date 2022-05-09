@@ -66,24 +66,28 @@ class Server(BaseServer):
 
     async def minutely(self, now: datetime):
         # this might hit before we've made our database after RPL_ISUPPORT
-        if self._database_init:
-            async with self.read_lock:
-                for oper, mask in await get_statsp(self):
-                    pref = await self.database.preference.get(
-                        oper, "statsp"
-                    )
-                    if pref is None or pref:
-                        await self.database.statsp.add(oper, mask, now)
+        if not self._database_init:
+            return
+        async with self.read_lock:
+            for oper, mask in await get_statsp(self):
+                pref = await self.database.preference.get(
+                    oper, "statsp"
+                )
+                if pref == False:
+                    # explicitly `== False` because it could also be None
+                    continue
+                await self.database.statsp.add(oper, mask, now)
 
     async def _compare_klines(self):
         klines_db  = await self.database.kline.list_active()
         klines_irc = await get_klines(self)
 
         # None if we didn't have permission to do it
-        if klines_irc is not None:
-            for kline_gone in set(klines_db) - klines_irc:
-                kline_id = klines_db[kline_gone]
-                await self.database.kline_remove.add(kline_id, None, None)
+        if klines_irc is None:
+            return
+        for kline_gone in set(klines_db) - klines_irc:
+            kline_id = klines_db[kline_gone]
+            await self.database.kline_remove.add(kline_id, None, None)
         # TODO: add new k-lines to database?
 
     async def _log(self, text: str):
