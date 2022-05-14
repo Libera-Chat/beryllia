@@ -95,12 +95,14 @@ class Server(BaseServer):
             await self.send(build("PRIVMSG", [self._config.log, text]))
     async def _knag(self, oper: str, nick: str, kline_id: int, kline: DBKLine) -> None:
         pref = await self.database.preference.get(oper, "knag")
-        if pref == True: # == True because it could be None
-            out = (
-                f"k-line \2#{kline_id}\2 ({kline.mask}) set without a tag;"
-                f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
-            )
-            await self.send(build("NOTICE", [nick, out]))
+        if not pref == True: # == True because it could be None
+            return
+
+        out = (
+            f"k-line \2#{kline_id}\2 ({kline.mask}) set without a tag;"
+            f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
+        )
+        await self.send(build("NOTICE", [nick, out]))
 
     async def _kline_new(self, kline_id: int) -> None:
         kline = await self.database.kline.get(kline_id)
@@ -230,16 +232,16 @@ class Server(BaseServer):
 
         if await self.database.kline_tag.exists(kline_id, tag):
             return [f"k-line {kline_id} is already tagged as '{tag}'"]
-        else:
-            await self.database.kline_tag.add(
-                kline_id, tag, caller.source, caller.oper
-            )
-            kline = await self.database.kline.get(kline_id)
-            kts   = pretty_delta(datetime.utcnow()-kline.ts)
-            return [
-                f"tagged {kts} old k-line"
-                f" (#{kline_id} \2{kline.mask}\2) as {tag}"
-            ]
+
+        await self.database.kline_tag.add(
+            kline_id, tag, caller.source, caller.oper
+        )
+        kline = await self.database.kline.get(kline_id)
+        kts   = pretty_delta(datetime.utcnow()-kline.ts)
+        return [
+            f"tagged {kts} old k-line"
+            f" (#{kline_id} \2{kline.mask}\2) as {tag}"
+        ]
 
     async def cmd_ktag(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
@@ -249,8 +251,8 @@ class Server(BaseServer):
             return [f"'{args[0]}' doesn't look like a k-line ID"]
         elif not await self.database.kline.exists(kline_id := int(args[0])):
             return [f"k-line {kline_id} not found"]
-        else:
-            return await self._ktag(kline_id, args[1], caller)
+
+        return await self._ktag(kline_id, args[1], caller)
     async def cmd_unktag(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
         if len(args) < 2:
@@ -259,12 +261,13 @@ class Server(BaseServer):
             return [f"'{args[0]}' doesn't look like a k-line ID"]
         elif not await self.database.kline.exists(kline_id := int(args[0])):
             return [f"k-line {kline_id} not found"]
+
         tag = args[1]
         if not await self.database.kline_tag.exists(kline_id, tag):
             return [f"k-line {kline_id} not tagged as '{tag}'"]
-        else:
-            await self.database.kline_tag.remove(kline_id, tag)
-            return [f"removed tag '{tag}' from k-line {kline_id}"]
+
+        await self.database.kline_tag.remove(kline_id, tag)
+        return [f"removed tag '{tag}' from k-line {kline_id}"]
 
     async def cmd_ktaglast(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
@@ -272,187 +275,186 @@ class Server(BaseServer):
             return ["please provide a k-line count and tag"]
         elif not args[0].isdigit():
             return [f"'{args[0]}' isn't a number"]
-        else:
-            kline_ids = await self.database.kline.find_last_by_oper(
-                caller.oper, int(args[0])
-            )
-            outs: List[str] = []
-            for kline_id in kline_ids:
-                outs += await self._ktag(kline_id, args[1], caller)
-            if not outs:
-                outs = ["found no recent k-lines from you"]
-            return outs
 
+        kline_ids = await self.database.kline.find_last_by_oper(
+            caller.oper, int(args[0])
+        )
+        outs: List[str] = []
+        for kline_id in kline_ids:
+            outs += await self._ktag(kline_id, args[1], caller)
+        if not outs:
+            outs = ["found no recent k-lines from you"]
+        return outs
 
     async def cmd_kcheck(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 1)
-        if len(args) > 1:
-            type, queryv = args
-            query = queryv.split()[0]
-            type  = type.lower()
-            db    = self.database
-            now   = datetime.utcnow()
-
-            limit = 3
-            if args and (limit_s := args[0]).isdigit():
-                limit = int(limit_s)
-
-            klines_: List[Tuple[int, datetime]] = []
-            if   type == "nick":
-                klines_ += await db.kline_kill.find_by_nick(query)
-                klines_ += await db.kline_reject.find_by_nick(query)
-            elif type == "host":
-                klines_ += await db.kline_kill.find_by_host(query)
-                klines_ += await db.kline_reject.find_by_host(query)
-            elif type == "mask":
-                klines_ += await db.kline.find_by_mask_glob(query)
-            elif type == "ts":
-                if (dt := try_parse_ts(queryv)) is not None:
-                    klines_ += await db.kline.find_by_ts(dt)
-                else:
-                    return [f"'{queryv}' does not look like a timestamp"]
-            elif type == "tag":
-                klines_ += await db.kline_tag.find(query)
-            elif type == "id":
-                if (query.isdigit()
-                        and await db.kline.exists(query_id := int(query))):
-                    # kinda annoying that we get the k-line here just to pull
-                    # out ts + id, then we use that id later to get the same
-                    # k-line again later.
-                    kline = await db.kline.get(query_id)
-                    klines_.append((query_id, kline.ts))
-            elif type == "ip":
-                if (ip := try_parse_ip(query)) is not None:
-                    klines_ += await db.kline_kill.find_by_ip(ip)
-                    klines_ += await db.kline_reject.find_by_ip(ip)
-                elif (cidr := try_parse_cidr(query)) is not None:
-                    klines_ += await db.kline_kill.find_by_cidr(cidr)
-                    klines_ += await db.kline_reject.find_by_cidr(cidr)
-                elif looks_like_glob(query):
-                    klines_ += await db.kline_kill.find_by_ip_glob(query)
-                    klines_ += await db.kline_reject.find_by_ip_glob(query)
-                else:
-                    return [f"'{query}' does not look like an IP address"]
-            else:
-                return [f"unknown query type '{type}'"]
-
-            # sort by timestamp descending
-            klines = sorted(set(klines_), key=lambda k: k[1], reverse=True)
-            # apply output limit
-            klines = klines[:limit]
-
-            outs: List[str] = []
-            for kline_id, _ in klines:
-                kline  = await db.kline.get(kline_id)
-                remove = await db.kline_remove.get(kline_id)
-
-                kts_human = pretty_delta(now-kline.ts)
-                if remove is not None:
-                    remover  = remove.oper or "unknown"
-                    remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
-                elif kline.expire < now:
-                    ts_since = pretty_delta(now-kline.expire)
-                    remove_s = f"\x0303expired {ts_since} ago\x03"
-                else:
-                    ts_left  = pretty_delta(kline.expire-now)
-                    remove_s = f"\x0304{ts_left} remaining\x03"
-
-                kills   = await db.kline_kill.find_by_kline(kline_id)
-                rejects = await db.kline_reject.find_by_kline(kline_id)
-                affected: List[NickUserHost] = list(kills) + list(rejects)
-
-                outs.append(
-                    f"K-Line \x02#{kline_id}\x02:"
-                    f" {kline.mask}"
-                    f" \x02{kts_human} ago\x02"
-                    f" by \x02{kline.oper}\x02"
-                    f" for {kline.duration//60} mins"
-                    f" ({remove_s})"
-                    f" {kline.reason}"
-                )
-                masks = sorted(set(nuh.nuh() for nuh in affected))
-                outs.append("  affected: " + ", ".join(masks[:MASK_MAX]))
-                if len(masks) > MASK_MAX:
-                    outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
-
-            return outs or ["no results"]
-        else:
+        args = sargs.split(None, 2)
+        if len(args) < 2:
             return ["please provide a type and query"]
+
+        type, queryv, *_ = args
+        query = queryv.split()[0]
+        type  = type.lower()
+        db    = self.database
+        now   = datetime.utcnow()
+
+        limit = 3
+        if args and (limit_s := args[0]).isdigit():
+            limit = int(limit_s)
+
+        klines_: List[Tuple[int, datetime]] = []
+        if   type == "nick":
+            klines_ += await db.kline_kill.find_by_nick(query)
+            klines_ += await db.kline_reject.find_by_nick(query)
+        elif type == "host":
+            klines_ += await db.kline_kill.find_by_host(query)
+            klines_ += await db.kline_reject.find_by_host(query)
+        elif type == "mask":
+            klines_ += await db.kline.find_by_mask_glob(query)
+        elif type == "ts":
+            if (dt := try_parse_ts(queryv)) is None:
+                return [f"'{queryv}' does not look like a timestamp"]
+            klines_ += await db.kline.find_by_ts(dt)
+        elif type == "tag":
+            klines_ += await db.kline_tag.find(query)
+        elif type == "id":
+            if (not query.isdigit()
+                    or not await db.kline.exists(query_id := int(query))):
+                return [f"unknown k-line id {query}"]
+            # kinda annoying that we get the k-line here just to pull
+            # out ts + id, then we use that id later to get the same
+            # k-line again later.
+            kline = await db.kline.get(query_id)
+            klines_.append((query_id, kline.ts))
+        elif type == "ip":
+            if (ip := try_parse_ip(query)) is not None:
+                klines_ += await db.kline_kill.find_by_ip(ip)
+                klines_ += await db.kline_reject.find_by_ip(ip)
+            elif (cidr := try_parse_cidr(query)) is not None:
+                klines_ += await db.kline_kill.find_by_cidr(cidr)
+                klines_ += await db.kline_reject.find_by_cidr(cidr)
+            elif looks_like_glob(query):
+                klines_ += await db.kline_kill.find_by_ip_glob(query)
+                klines_ += await db.kline_reject.find_by_ip_glob(query)
+            else:
+                return [f"'{query}' does not look like an IP address"]
+        else:
+            return [f"unknown query type '{type}'"]
+
+        # sort by timestamp descending
+        klines = sorted(set(klines_), key=lambda k: k[1], reverse=True)
+        # apply output limit
+        klines = klines[:limit]
+
+        outs: List[str] = []
+        for kline_id, _ in klines:
+            kline  = await db.kline.get(kline_id)
+            remove = await db.kline_remove.get(kline_id)
+
+            kts_human = pretty_delta(now-kline.ts)
+            if remove is not None:
+                remover  = remove.oper or "unknown"
+                remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
+            elif kline.expire < now:
+                ts_since = pretty_delta(now-kline.expire)
+                remove_s = f"\x0303expired {ts_since} ago\x03"
+            else:
+                ts_left  = pretty_delta(kline.expire-now)
+                remove_s = f"\x0304{ts_left} remaining\x03"
+
+            kills   = await db.kline_kill.find_by_kline(kline_id)
+            rejects = await db.kline_reject.find_by_kline(kline_id)
+            affected: List[NickUserHost] = list(kills) + list(rejects)
+
+            outs.append(
+                f"K-Line \x02#{kline_id}\x02:"
+                f" {kline.mask}"
+                f" \x02{kts_human} ago\x02"
+                f" by \x02{kline.oper}\x02"
+                f" for {kline.duration//60} mins"
+                f" ({remove_s})"
+                f" {kline.reason}"
+            )
+            masks = sorted(set(nuh.nuh() for nuh in affected))
+            outs.append("  affected: " + ", ".join(masks[:MASK_MAX]))
+            if len(masks) > MASK_MAX:
+                outs[-1] += f" (and {len(masks)-MASK_MAX} more)"
+
+        return outs or ["no results"]
 
     async def cmd_cliconn(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
-        if len(args) > 1:
-            type, query, *_ = args
-            type = type.lower()
-            db   = self.database
-            now  = datetime.utcnow()
-
-            cliconns_: List[Tuple[int, datetime]] = []
-            if   type == "nick":
-                cliconns_ += await db.cliconn.find_by_nick(query)
-                cliconns_ += await db.nick_change.find_cliconn(query)
-            elif type == "user":
-                cliconns_ += await db.cliconn.find_by_user(query)
-            elif type == "host":
-                cliconns_ += await db.cliconn.find_by_host(query)
-            elif type == "ip":
-                if (ip := try_parse_ip(query)) is not None:
-                    cliconns_ += await db.cliconn.find_by_ip(ip)
-                elif (cidr := try_parse_cidr(query)) is not None:
-                    cliconns_ += await db.cliconn.find_by_cidr(cidr)
-                elif looks_like_glob(query):
-                    cliconns_ += await db.cliconn.find_by_ip_glob(query)
-                else:
-                    return [f"'{query}' does not look like an IP address"]
-            else:
-                return [f"unknown query type '{type}'"]
-
-            # cut out duplicates
-            # the database code does this already, but we might compile from
-            # multiple database calls
-            cliconns = sorted(
-                set(cliconns_), key=lambda c: c[1], reverse=True
-            )
-            # cut it to 3 results. database code also does this, but see above
-            cliconns = cliconns[:3]
-
-            outs: List[str] = []
-            for cliconn_id, _ in cliconns:
-                cliconn   = await db.cliconn.get(cliconn_id)
-                cts_human = pretty_delta(now-cliconn.ts)
-                nick_chg  = await db.nick_change.get(cliconn_id)
-
-                outs.append(
-                    f"\x02{cts_human}\x02 ago -"
-                    f" {cliconn.nuh()} [{cliconn.realname}]"
-                )
-                if nick_chg:
-                    nick_chg_s = ", ".join(nick_chg)
-                    outs.append(f"  nicks: {nick_chg_s}")
-
-            return outs or ["no results"]
-        else:
+        if len(args) < 2:
             return ["please provide a type and query"]
+
+        type, query, *_ = args
+        type = type.lower()
+        db   = self.database
+        now  = datetime.utcnow()
+
+        cliconns_: List[Tuple[int, datetime]] = []
+        if   type == "nick":
+            cliconns_ += await db.cliconn.find_by_nick(query)
+            cliconns_ += await db.nick_change.find_cliconn(query)
+        elif type == "user":
+            cliconns_ += await db.cliconn.find_by_user(query)
+        elif type == "host":
+            cliconns_ += await db.cliconn.find_by_host(query)
+        elif type == "ip":
+            if (ip := try_parse_ip(query)) is not None:
+                cliconns_ += await db.cliconn.find_by_ip(ip)
+            elif (cidr := try_parse_cidr(query)) is not None:
+                cliconns_ += await db.cliconn.find_by_cidr(cidr)
+            elif looks_like_glob(query):
+                cliconns_ += await db.cliconn.find_by_ip_glob(query)
+            else:
+                return [f"'{query}' does not look like an IP address"]
+        else:
+            return [f"unknown query type '{type}'"]
+
+        # cut out duplicates
+        # the database code does this already, but we might compile from
+        # multiple database calls
+        cliconns = sorted(
+            set(cliconns_), key=lambda c: c[1], reverse=True
+        )
+        # cut it to 3 results. database code also does this, but see above
+        cliconns = cliconns[:3]
+
+        outs: List[str] = []
+        for cliconn_id, _ in cliconns:
+            cliconn   = await db.cliconn.get(cliconn_id)
+            cts_human = pretty_delta(now-cliconn.ts)
+            nick_chg  = await db.nick_change.get(cliconn_id)
+
+            outs.append(
+                f"\x02{cts_human}\x02 ago -"
+                f" {cliconn.nuh()} [{cliconn.realname}]"
+            )
+            if nick_chg:
+                nick_chg_s = ", ".join(nick_chg)
+                outs.append(f"  nicks: {nick_chg_s}")
+
+        return outs or ["no results"]
 
     async def cmd_statsp(self, caller: Caller, args: str):
         match = RE_DATE.search(args.strip() or "1970-01-01")
-        if match is not None:
-            since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
-            statsp_d = await self.database.statsp.count_since(since_ts)
-            col_size = max([len(str(m)) for m in statsp_d.values()])
-
-            outs: List[str] = []
-            for oper, minutes in statsp_d.items():
-                mins_str = str(minutes).rjust(col_size)
-                outs.append(f"{mins_str} mins - {oper}")
-
-            total_min = sum(statsp_d.values())
-            total_str = pretty_delta(timedelta(minutes=total_min), long=True)
-            outs.append(f"total: {total_str}")
-
-            return outs
-        else:
+        if match is None:
             return [f"that's not a date"]
+
+        since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
+        statsp_d = await self.database.statsp.count_since(since_ts)
+        col_size = max([len(str(m)) for m in statsp_d.values()])
+
+        outs: List[str] = []
+        for oper, minutes in statsp_d.items():
+            mins_str = str(minutes).rjust(col_size)
+            outs.append(f"{mins_str} mins - {oper}")
+
+        total_min = sum(statsp_d.values())
+        total_str = pretty_delta(timedelta(minutes=total_min), long=True)
+        outs.append(f"total: {total_str}")
+
+        return outs
 
     async def cmd_pref(self, caller: Caller, sargs: str):
         args = sargs.split(None, 1)
@@ -467,9 +469,9 @@ class Server(BaseServer):
             return [f"{key} == {value}"]
         elif not type(value := json_loads(args[1])) == PREFERENCES[key]:
             return [f"invalid value type '{type(value)}' for key {key}"]
-        else:
-            await db.preference.set(caller.oper, key, value)
-            return [f"set {key} to {value}"]
+
+        await db.preference.set(caller.oper, key, value)
+        return [f"set {key} to {value}"]
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")
