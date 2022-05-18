@@ -16,6 +16,8 @@ from ircstates.numerics import *
 # not in ircstates.numerics
 RPL_STATS      = "249"
 RPL_ENDOFSTATS = "219"
+RPL_LINKS      = "364"
+RPL_ENDOFLINKS = "365"
 
 RE_OPERNAME = re.compile(r"^is opered as (\S+)(?:,|$)")
 
@@ -108,6 +110,22 @@ async def get_statsp(server: Server) -> List[Tuple[str, str]]:
             opers.append((oper, mask))
 
     return opers
+
+async def get_links(server: Server) -> List[str]:
+    # :ircd.hub 364 l ircd.leaf ircd.hub :0 test server
+    await server.send(build("LINKS"))
+
+    linked_servers: List[str] = []
+    while True:
+        links_line = await server.wait_for({
+            Response(RPL_LINKS, [SELF, ANY]),
+            Response(RPL_ENDOFLINKS, [SELF, ANY])
+        })
+        if links_line.command == RPL_LINKS:
+            linked_servers.append(links_line.params[1])
+        else:
+            break
+    return linked_servers
 
 RPL_STATSKLINE = "216"
 RPL_ENDOFSTATS = "219"
