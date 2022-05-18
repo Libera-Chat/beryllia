@@ -15,6 +15,7 @@ class Config(object):
     channels: Sequence[str]
     log:      Optional[str]
     rejects:  int
+    warn_new: bool
 
     sasl: Tuple[str, str]
     oper: Tuple[str, str, str]
@@ -43,6 +44,7 @@ def load(filepath: str):
         config_yaml["channels"],
         config_yaml.get("log", None),
         config_yaml["rejects"],
+        config_yaml["warn-new"],
         (config_yaml["sasl"]["username"], config_yaml["sasl"]["password"]),
         (oper_name, oper_file, oper_pass),
         config_yaml["database"]["user"],

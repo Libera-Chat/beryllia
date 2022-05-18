@@ -165,6 +165,11 @@ class Server(BaseServer):
                 if not (account_ := p_cliconn.group("account")) == "*":
                     account = account_
 
+                if len(await self.database.cliconn.find_by_nick(
+                        nickname
+                )) == 0 and self._config.warn_new:
+                    await self._log(f"NICK:NEW: {nickname}!{username}@{ip}")
+
                 cliconn_id = await self.database.cliconn.add(
                     nickname,
                     username,
