@@ -177,10 +177,41 @@ class CliconnTable(Table):
             )
 
 class CliexitTable(Table):
-    async def add(self, cliconn_id: int, reason: str):
+    async def add(self,
+            cliconn:  Optional[int],
+            nickname: str,
+            username: str,
+            hostname: str,
+            ip:       Optional[Union[IPv4Address, IPv6Address]],
+            reason:   str
+            ) -> int:
+
         query = """
-            INSERT INTO cliexit (cliconn_id, reason, ts)
-            VALUES ($1, $2, NOW()::TIMESTAMP)
+            INSERT INTO cliexit (
+                cliconn_id,
+                nickname,
+                search_nick,
+                username,
+                search_user,
+                hostname,
+                search_host,
+                ip,
+                reason,
+                ts
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()::TIMESTAMP)
+            RETURNING id
         """
+        args = [
+            cliconn,
+            nickname,
+            str(self.to_search(nickname, SearchType.NICK)),
+            username,
+            str(self.to_search(username, SearchType.USER)),
+            hostname,
+            str(self.to_search(hostname, SearchType.HOST)),
+            ip,
+            reason
+        ]
         async with self.pool.acquire() as conn:
-            await conn.execute(query, cliconn_id, reason)
+            return await conn.fetchval(query, *args)

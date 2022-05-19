@@ -111,9 +111,17 @@ CREATE INDEX cliconn_search_host ON cliconn(search_host);
 CREATE INDEX cliconn_ip          ON cliconn(ip);
 
 CREATE TABLE cliexit (
-    cliconn_id  INTEGER      PRIMARY KEY  NOT NULL  REFERENCES cliconn(id),
-    reason      VARCHAR(260) NOT NULL,
-    ts          TIMESTAMP    NOT NULL
+    id           SERIAL       PRIMARY KEY
+    cliconn_id   INTEGER      REFERENCES cliconn (id),
+    nickname     VARCHAR(16)  NOT NULL,
+    search_nick  VARCHAR(16)  NOT NULL,
+    username     VARCHAR(10)  NOT NULL,
+    search_user  VARCHAR(10)  NOT NULL,
+    hostname     VARCHAR(64)  NOT NULL,
+    search_host  VARCHAR(64)  NOT NULL,
+    ip           INET,
+    reason       VARCHAR(260) NOT NULL,
+    ts           TIMESTAMP    NOT NULL
 );
 
 CREATE TABLE nick_change (
