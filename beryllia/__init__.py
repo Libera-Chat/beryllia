@@ -194,9 +194,13 @@ class Server(BaseServer):
                 if not (ip_str := p_cliexit.group("ip")) == "0":
                     ip = ipaddress.ip_address(ip_str)
 
+                cliconn_id: Optional[int] = None
                 if nickname in self._cliconns:
                     cliconn_id = self._cliconns.pop(nickname)
-                    await self.database.cliexit.add(cliconn_id, reason)
+
+                await self.database.cliexit.add(
+                    cliconn_id, nickname, username, hostname, ip, reason
+                )
 
                 if nickname in self._wait_for_exit:
                     mask     = self._wait_for_exit.pop(nickname)
