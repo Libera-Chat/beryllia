@@ -548,20 +548,32 @@ class Server(BaseServer):
             return ["please provide a type and query"]
 
     async def cmd_statsp(self, caller: Caller, args: str):
+        json_output: bool = "json" in args
+        if json_output:
+            args = args.replace("json", "")
         match = RE_DATE.search(args.strip() or "1970-01-01")
         if match is not None:
             since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
             statsp_d = await self.database.statsp.count_since(since_ts)
-            col_size = max([len(str(m)) for m in statsp_d.values()])
-
-            outs: List[str] = []
-            for oper, minutes in statsp_d.items():
-                mins_str = str(minutes).rjust(col_size)
-                outs.append(f"{mins_str} mins - {oper}")
-
             total_min = sum(statsp_d.values())
-            total_str = pretty_delta(timedelta(minutes=total_min), long=True)
-            outs.append(f"total: {total_str}")
+            col_size = max([len(str(m)) for m in statsp_d.values()])
+            outs: List[str] = []
+
+            if json_output:
+                outs.append(f'{{"total": {total_min}, "staff": {{')
+                for oper, minutes in statsp_d.items():
+                    outs.append(f'"{oper}": {minutes},')
+                # Snip trailing , from the last staff entry
+                if len(outs) > 1: outs[-1] = outs[-1].replace(",", "")
+                outs.append("}}")
+
+            else:
+                for oper, minutes in statsp_d.items():
+                    mins_str = str(minutes).rjust(col_size)
+                    outs.append(f"{mins_str} mins - {oper}")
+
+                total_str = pretty_delta(timedelta(minutes=total_min), long=True)
+                outs.append(f"total: {total_str}")
 
             return outs
         else:
