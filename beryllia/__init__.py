@@ -21,7 +21,7 @@ from .normalise import RFC1459SearchNormaliser
 
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
 from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util      import looks_like_glob, colourise
+from .util      import looks_like_glob, colourise, recursive_mx_resolve
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
@@ -31,6 +31,7 @@ RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K
 RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
+RE_REGISTRAT = re.compile(r"^NickServ (?P<nickname>\S+) REGISTER: (?P<account>\S+) to (?P<email>\S+)$")
 
 RE_KLINETAG  = re.compile(r"%(\S+)")
 
@@ -287,22 +288,63 @@ class Server(BaseServer):
                 and line.source is not None
                 and not self.is_me(line.hostmask.nickname)):
 
-            me  = self.nickname
-            who = line.hostmask
+            await self._on_message(line)
 
-            first, _, rest = line.params[1].partition(" ")
-            if self.is_me(line.params[0]):
-                # private message
-                await self.cmd(
-                    who, who.nickname, first.lower(), rest, line.tags
-                )
-            elif rest:
-                if first in [me, f"{me}:", f"{me},"]:
-                    # highlight in channel
-                    command, _, args = rest.partition(" ")
-                    await self.cmd(
-                        who, line.params[0], command.lower(), args, line.tags
-                    )
+    async def _on_registration(
+        self, nickname: str, account: str, email: str
+    ) -> None:
+
+        registration_id = await self.database.registration.add(
+            nickname, account, email
+        )
+
+        email_parts = email.split("@", 1)
+        if not len(email_parts) == 2:
+            # log a warning?
+            return
+
+        _, email_domain = email_parts
+        resolved = await recursive_mx_resolve(email_domain)
+        for record_type, record in resolved:
+            await self.database.email_resolve.add(
+                registration_id, record_type, record
+            )
+
+    async def _on_message(self, line: Line) -> None:
+        first, _, rest = line.params[1].partition(" ")
+        if self.is_me(line.params[0]):
+            # private message
+            await self.cmd(
+                line.hostmask,
+                line.hostmask.nickname,
+                first.lower(),
+                rest,
+                line.tags
+            )
+            return
+
+        elif rest and first in {
+            f"{self.nickname}{c}" for c in [":", ",", ""]
+        }:
+            # highlight in channel
+            command, _, args = rest.partition(" ")
+            await self.cmd(
+                line.hostmask,
+                line.params[0],
+                command.lower(),
+                args,
+                line.tags
+            )
+            return
+
+        message = f"{line.hostmask.nickname} {line.params[1]}"
+        p_registration = RE_REGISTRAT.search(message)
+        if p_registration is not None:
+            nickname = p_registration.group("nickname")
+            account = p_registration.group("account")
+            email = p_registration.group("email")
+
+            await self._on_registration(nickname, account, email)
 
     async def cmd(self,
             who:     Hostmask,

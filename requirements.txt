@@ -1,3 +1,4 @@
+aiodns       ~=3.0.0
 asyncpg      ~=0.24.0
 ircchallenge ~=0.1.2
 ircrobots    ~=0.6.1

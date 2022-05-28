@@ -4,7 +4,7 @@ from enum      import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
 
-from typing    import Deque, List, Optional, Set, Tuple, Union
+from typing    import Deque, List, Optional, Sequence, Set, Tuple, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -12,6 +12,9 @@ from irctokens import build
 from ircchallenge       import Challenge
 from ircrobots.matching import ANY, Folded, Response, SELF
 from ircstates.numerics import *
+
+from aiodns       import DNSResolver
+from aiodns.error import DNSError
 
 # not in ircstates.numerics
 RPL_STATS      = "249"
@@ -276,3 +279,30 @@ def colourise(s: str):
     hash = hash_djb2(s)
     colour = COLOURS[hash % len(COLOURS)]
     return f"\x03{str(colour).zfill(2)}{s}\x03"
+
+async def recursive_mx_resolve(email_domain: str) -> Sequence[Tuple[str, str]]:
+    resolver = DNSResolver()
+
+    to_resolve = [
+        ("MX", email_domain), ("A", email_domain), ("AAAA", email_domain)
+    ]
+    resolved: List[Tuple[str, str]] = []
+
+    while to_resolve:
+        record_type, name = to_resolve.pop(0)
+        try:
+            resolves = await resolver.query(name, record_type)
+        except DNSError:
+            # log an error?
+            continue
+
+        for resolve in resolves:
+            resolved.append((record_type, resolve.host))
+
+            if record_type == "MX":
+                # MX is expected to resolve to a domain that will want to also
+                # be resolved
+                to_resolve.insert(0, ("AAAA", resolve.host))
+                to_resolve.insert(0, ("A", resolve.host))
+
+    return resolved
