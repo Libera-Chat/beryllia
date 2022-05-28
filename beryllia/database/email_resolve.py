@@ -7,9 +7,8 @@ class EmailResolveTable(Table):
             record:          str) -> int:
 
         query = """
-            INSERT INTO email_resolve
-                (registration_id, record_type, record, ts)
-            VALUES ($1, $2, $3, NOW()::TIMESTAMP)
+            INSERT INTO email_resolve (registration_id, record_type, record)
+            VALUES ($1, $2, $3)
             RETURNING id
         """
 
