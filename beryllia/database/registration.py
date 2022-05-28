@@ -1,9 +1,4 @@
-from datetime    import datetime
-from typing      import Collection, Tuple
-
-from .common     import Table
-from ..normalise import SearchType
-from ..util      import glob_to_sql, lex_glob_pattern
+from .common import Table
 
 class RegistrationTable(Table):
     async def add(self,
