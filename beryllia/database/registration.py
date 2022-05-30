@@ -14,3 +14,13 @@ class RegistrationTable(Table):
 
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, nickname, account, email)
+
+    async def verify(self, id: int) -> None:
+        query = """
+            UPDATE registration
+            SET verified_at = NOW()::TIMESTAMP
+            WHERE id = $1
+        """
+
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, id)

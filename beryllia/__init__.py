@@ -21,7 +21,9 @@ from .normalise import RFC1459SearchNormaliser
 
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
 from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util      import looks_like_glob, colourise, recursive_mx_resolve
+from .util      import looks_like_glob, colourise
+
+from .parse.nickserv import NickServParser
 
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
@@ -31,7 +33,6 @@ RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K
 RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
 RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
-RE_REGISTRAT = re.compile(r"^NickServ (?P<nickname>\S+) REGISTER: (?P<account>\S+) to (?P<email>\S+)$")
 
 RE_KLINETAG  = re.compile(r"%(\S+)")
 
@@ -51,6 +52,7 @@ PREFERENCES: Dict[str, type] = {
 
 class Server(BaseServer):
     database: Database
+    _nickserv: NickServParser
 
     def __init__(self,
             bot:    BaseBot,
@@ -117,7 +119,7 @@ class Server(BaseServer):
         elif line.command in {RPL_ENDOFMOTD, ERR_NOMOTD}:
             # we should now know our casemap, so connect database.
             # we need the casemap for this to normalise things for searching
-            self.database = await Database.connect(
+            self.database = database = await Database.connect(
                 self._config.db_user,
                 self._config.db_pass,
                 self._config.db_host,
@@ -125,6 +127,7 @@ class Server(BaseServer):
                 RFC1459SearchNormaliser()
             )
             self._database_init = True
+            self._nickserv = NickServParser(database)
 
         elif line.command == RPL_YOUREOPER:
             # B connections rejected due to k-line
@@ -290,33 +293,11 @@ class Server(BaseServer):
 
             await self._on_message(line)
 
-    async def _on_registration(
-        self, nickname: str, account: str, email: str
-    ) -> None:
-
-        registration_id = await self.database.registration.add(
-            nickname, account, email
-        )
-
-        email_parts = email.split("@", 1)
-        if not len(email_parts) == 2:
-            # log a warning?
+    async def _on_message(self, line: Line) -> None:
+        if line.hostmask.nickname == "NickServ":
+            await self._nickserv.handle(line)
             return
 
-        _, email_domain = email_parts
-        resolved = await recursive_mx_resolve(email_domain)
-
-        resolved_ids: List[int] = []
-        for record_parent, record_type, record in resolved:
-            if record_parent is not None:
-                record_parent = resolved_ids[record_parent]
-
-            record_id = await self.database.email_resolve.add(
-                registration_id, record_parent, record_type, record
-            )
-            resolved_ids.append(record_id)
-
-    async def _on_message(self, line: Line) -> None:
         first, _, rest = line.params[1].partition(" ")
         if self.is_me(line.params[0]):
             # private message
@@ -342,15 +323,6 @@ class Server(BaseServer):
                 line.tags
             )
             return
-
-        message = f"{line.hostmask.nickname} {line.params[1]}"
-        p_registration = RE_REGISTRAT.search(message)
-        if p_registration is not None:
-            nickname = p_registration.group("nickname")
-            account = p_registration.group("account")
-            email = p_registration.group("email")
-
-            await self._on_registration(nickname, account, email)
 
     async def cmd(self,
             who:     Hostmask,
