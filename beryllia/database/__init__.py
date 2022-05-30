@@ -10,6 +10,9 @@ from .db_kline_remove import *
 from .db_kline_tag    import *
 from .db_preference   import *
 
+from .registration    import RegistrationTable
+from .email_resolve   import EmailResolveTable
+
 from ..normalise  import SearchType, SearchNormaliser
 
 class Database(object):
@@ -28,6 +31,8 @@ class Database(object):
         self.nick_change  = NickChangeTable(pool, normaliser)
         self.statsp       = StatsPTable(pool, normaliser)
         self.preference   = PreferenceTable(pool, normaliser)
+        self.registration = RegistrationTable(pool, normaliser)
+        self.email_resolve = EmailResolveTable(pool, normaliser)
 
     @classmethod
     async def connect(self,

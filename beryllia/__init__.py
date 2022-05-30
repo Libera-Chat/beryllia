@@ -23,6 +23,8 @@ from .util      import oper_up, pretty_delta, get_statsp, get_klines
 from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
 from .util      import looks_like_glob, colourise
 
+from .parse.nickserv import NickServParser
+
 RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
 RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
 RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
@@ -50,6 +52,7 @@ PREFERENCES: Dict[str, type] = {
 
 class Server(BaseServer):
     database: Database
+    _nickserv: NickServParser
 
     def __init__(self,
             bot:    BaseBot,
@@ -116,7 +119,7 @@ class Server(BaseServer):
         elif line.command in {RPL_ENDOFMOTD, ERR_NOMOTD}:
             # we should now know our casemap, so connect database.
             # we need the casemap for this to normalise things for searching
-            self.database = await Database.connect(
+            self.database = database = await Database.connect(
                 self._config.db_user,
                 self._config.db_pass,
                 self._config.db_host,
@@ -124,6 +127,7 @@ class Server(BaseServer):
                 RFC1459SearchNormaliser()
             )
             self._database_init = True
+            self._nickserv = NickServParser(database)
 
         elif line.command == RPL_YOUREOPER:
             # B connections rejected due to k-line
@@ -287,22 +291,38 @@ class Server(BaseServer):
                 and line.source is not None
                 and not self.is_me(line.hostmask.nickname)):
 
-            me  = self.nickname
-            who = line.hostmask
+            await self._on_message(line)
 
-            first, _, rest = line.params[1].partition(" ")
-            if self.is_me(line.params[0]):
-                # private message
-                await self.cmd(
-                    who, who.nickname, first.lower(), rest, line.tags
-                )
-            elif rest:
-                if first in [me, f"{me}:", f"{me},"]:
-                    # highlight in channel
-                    command, _, args = rest.partition(" ")
-                    await self.cmd(
-                        who, line.params[0], command.lower(), args, line.tags
-                    )
+    async def _on_message(self, line: Line) -> None:
+        if line.hostmask.nickname == "NickServ":
+            await self._nickserv.handle(line)
+            return
+
+        first, _, rest = line.params[1].partition(" ")
+        if self.is_me(line.params[0]):
+            # private message
+            await self.cmd(
+                line.hostmask,
+                line.hostmask.nickname,
+                first.lower(),
+                rest,
+                line.tags
+            )
+            return
+
+        elif rest and first in {
+            f"{self.nickname}{c}" for c in [":", ",", ""]
+        }:
+            # highlight in channel
+            command, _, args = rest.partition(" ")
+            await self.cmd(
+                line.hostmask,
+                line.params[0],
+                command.lower(),
+                args,
+                line.tags
+            )
+            return
 
     async def cmd(self,
             who:     Hostmask,
