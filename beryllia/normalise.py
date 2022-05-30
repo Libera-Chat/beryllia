@@ -13,6 +13,7 @@ class SearchType(Enum):
     HOST = 4
     TAG  = 5
     MASK = 6
+    EMAIL = 7
 
 class SearchNormaliser(object):
     def normalise(self,

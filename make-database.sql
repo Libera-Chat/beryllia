@@ -136,12 +136,15 @@ CREATE INDEX nick_change_cliconn_id ON nick_change(cliconn_id);
 CREATE INDEX nick_change_nickname   ON nick_change(nickname);
 
 CREATE TABLE registration (
-    id           SERIAL        PRIMARY KEY,
-    nickname     VARCHAR(16)   NOT NULL,
-    account      VARCHAR(16)   NOT NULL,
-    email        VARCHAR(256)  NOT NULL,
-    verified_at  TIMESTAMP,
-    ts           TIMESTAMP     NOT NULL
+    id            SERIAL        PRIMARY KEY,
+    nickname      VARCHAR(16)   NOT NULL,
+    search_nick   VARCHAR(16)   NOT NULL,
+    account       VARCHAR(16)   NOT NULL,
+    search_acc    VARCHAR(16)   NOT NULL,
+    email         VARCHAR(256)  NOT NULL,
+    search_email  VARCHAR(256)  NOT NULL,
+    verified_at   TIMESTAMP,
+    ts            TIMESTAMP     NOT NULL
 );
 
 CREATE TABLE email_resolve (
