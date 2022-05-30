@@ -305,10 +305,16 @@ class Server(BaseServer):
 
         _, email_domain = email_parts
         resolved = await recursive_mx_resolve(email_domain)
-        for record_type, record in resolved:
-            await self.database.email_resolve.add(
-                registration_id, record_type, record
+
+        resolved_ids: List[int] = []
+        for record_parent, record_type, record in resolved:
+            if record_parent is not None:
+                record_parent = resolved_ids[record_parent]
+
+            record_id = await self.database.email_resolve.add(
+                registration_id, record_parent, record_type, record
             )
+            resolved_ids.append(record_id)
 
     async def _on_message(self, line: Line) -> None:
         first, _, rest = line.params[1].partition(" ")

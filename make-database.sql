@@ -145,7 +145,8 @@ CREATE TABLE registration (
 
 CREATE TABLE email_resolve (
     id               SERIAL        PRIMARY KEY,
-    registration_id  INTEGER       NOT NULL     REFERENCES registration (id)  ON DELETE CASCADE,
+    registration_id  INTEGER       NOT NULL     REFERENCES registration (id)   ON DELETE CASCADE,
+    record_parent    INTEGER                    REFERENCES email_resolve (id)  ON DELETE CASCADE,
     record_type      VARCHAR(16)   NOT NULL,
     record           VARCHAR(256)  NOT NULL
 );
