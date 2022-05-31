@@ -34,11 +34,17 @@ def _handler(pattern: str) -> Callable[[_TYPE_HANDLER], _TYPE_HANDLER]:
 
 
 class SnoteParser(IRCParser):
-    def __init__(self, database: Database, kline_reject_max: int):
+    def __init__(
+        self,
+        database: Database,
+        kline_reject_max: int,
+        kline_new: Callable[[int], Awaitable[None]],
+    ):
         super().__init__()
 
         self._database = database
         self._kline_reject_max = kline_reject_max
+        self._kline_new = kline_new
 
         self._cliconns: Dict[str, int] = {}
         self._kline_waiting_exit: Dict[str, str] = {}
@@ -256,6 +262,9 @@ class SnoteParser(IRCParser):
         kline_id = await self._database.kline.add(
             source, oper, mask, int(duration) * 60, reason
         )
+
+        # TODO: just pass a KLine object to _kline_new
+        await self._kline_new(kline_id)
 
         tags = list(RE_KLINETAG.finditer(reason))
         for tag_match in tags:

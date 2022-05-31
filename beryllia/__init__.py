@@ -99,6 +99,17 @@ class Server(BaseServer):
             )
             await self.send(build("NOTICE", [nick, out]))
 
+    async def _kline_new(self, kline_id: int) -> None:
+        kline = await self.database.kline.get(kline_id)
+
+        # TODO: knag
+
+        await self._log(
+            f"KLINE:NEW: \2{kline_id}\2"
+            f" by {colourise(kline.oper)}:"
+            f" {kline.mask} {kline.reason}"
+        )
+
     async def line_read(self, line: Line):
         now = time.monotonic()
 
@@ -119,7 +130,7 @@ class Server(BaseServer):
             self._database_init = True
 
             self._nickserv = NickServParser(database)
-            self._snote = SnoteParser(database, self._config.rejects)
+            self._snote = SnoteParser(database, self._config.rejects, self._kline_new)
 
         elif line.command == RPL_YOUREOPER:
             # B connections rejected due to k-line
