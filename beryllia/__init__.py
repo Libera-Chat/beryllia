@@ -112,7 +112,6 @@ class Server(BaseServer):
         now = time.monotonic()
 
         if line.command == RPL_WELCOME:
-            await self.send(build("MODE", [self.nickname, "+g"]))
             oper_name, oper_file, oper_pass = self._config.oper
             await oper_up(self, oper_name, oper_file, oper_pass)
 
