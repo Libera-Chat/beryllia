@@ -119,7 +119,7 @@ class Server(BaseServer):
             self._database_init = True
 
             self._nickserv = NickServParser(database)
-            self._snote = SnoteParser(database)
+            self._snote = SnoteParser(database, self._config.rejects)
 
         elif line.command == RPL_YOUREOPER:
             # B connections rejected due to k-line

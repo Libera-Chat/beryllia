@@ -34,9 +34,11 @@ def _handler(pattern: str) -> Callable[[_TYPE_HANDLER], _TYPE_HANDLER]:
 
 
 class SnoteParser(IRCParser):
-    def __init__(self, database: Database):
+    def __init__(self, database: Database, kline_reject_max: int):
         super().__init__()
+
         self._database = database
+        self._kline_reject_max = kline_reject_max
 
         self._cliconns: Dict[str, int] = {}
         self._kline_waiting_exit: Dict[str, str] = {}
@@ -176,9 +178,8 @@ class SnoteParser(IRCParser):
             return
 
         others = await self._database.kline_reject.find_by_hostname(kline_id, hostname)
-        # TODO
-        # if len(others) >= self._config.rejects:
-        #    return
+        if len(others) >= self._kline_reject_max:
+            return
 
         await self._database.kline_reject.add(
             kline_id, nickname, username, hostname, ip
