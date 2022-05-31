@@ -7,7 +7,7 @@ from json        import loads as json_loads
 from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
-from irctokens import build, Hostmask, Line
+from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
@@ -16,7 +16,7 @@ from ircrobots.ircv3    import Capability
 from ircrobots.matching import ANY, Folded, Response, SELF
 
 from .config    import Config
-from .database  import Database
+from .database  import Database, DBKLine
 from .normalise import RFC1459SearchNormaliser
 
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
@@ -89,10 +89,9 @@ class Server(BaseServer):
     async def _log(self, text: str):
         if self._config.log is not None:
             await self.send(build("PRIVMSG", [self._config.log, text]))
-    async def _knag(self, oper: str, nick: str, kline_id: int):
+    async def _knag(self, oper: str, nick: str, kline_id: int, kline: DBKLine) -> None:
         pref = await self.database.preference.get(oper, "knag")
         if pref == True: # == True because it could be None
-            kline = await self.database.kline.get(kline_id)
             out = (
                 f"k-line \2#{kline_id}\2 ({kline.mask}) set without a tag;"
                 f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
@@ -102,7 +101,8 @@ class Server(BaseServer):
     async def _kline_new(self, kline_id: int) -> None:
         kline = await self.database.kline.get(kline_id)
 
-        # TODO: knag
+        nickname = hostmask_parse(kline.source).nickname
+        await self._knag(kline.oper, nickname, kline_id, kline)
 
         await self._log(
             f"KLINE:NEW: \2{kline_id}\2"
