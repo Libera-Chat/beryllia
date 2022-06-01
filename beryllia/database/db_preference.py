@@ -2,6 +2,7 @@ import json
 from typing import Any, Optional
 from .common import Table
 
+
 class PreferenceTable(Table):
     async def get(self, oper: str, key: str) -> Optional[Any]:
         query = """
@@ -34,4 +35,3 @@ class PreferenceTable(Table):
 
         async with self.pool.acquire() as conn:
             await conn.execute(query, oper, key, json.dumps(value))
-

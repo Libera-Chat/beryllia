@@ -1,11 +1,9 @@
 from .common import Table
 from ..normalise import SearchType
 
+
 class RegistrationTable(Table):
-    async def add(self,
-            nickname: str,
-            account:  str,
-            email:    str) -> int:
+    async def add(self, nickname: str, account: str, email: str) -> int:
 
         query = """
             INSERT INTO registration (
@@ -26,7 +24,7 @@ class RegistrationTable(Table):
             account,
             str(self.to_search(account, SearchType.NICK)),
             email,
-            str(self.to_search(email, SearchType.EMAIL))
+            str(self.to_search(email, SearchType.EMAIL)),
         ]
 
         async with self.pool.acquire() as conn:

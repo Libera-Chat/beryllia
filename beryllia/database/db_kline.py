@@ -1,23 +1,24 @@
 from dataclasses import dataclass
-from datetime    import datetime, timedelta
-from ipaddress   import IPv4Address, IPv6Address
-from ipaddress   import IPv4Network, IPv6Network
-from typing      import (Any, Collection, Dict, Optional, Sequence, Tuple,
-    Union)
+from datetime import datetime, timedelta
+from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Network, IPv6Network
+from typing import Any, Collection, Dict, Optional, Sequence, Tuple, Union
 
-from .common     import Table
+from .common import Table
 from ..normalise import SearchType
-from ..util      import lex_glob_pattern, glob_to_sql
+from ..util import lex_glob_pattern, glob_to_sql
+
 
 @dataclass
 class DBKLine(object):
-    mask:     str
-    source:   str
-    oper:     str
+    mask: str
+    source: str
+    oper: str
     duration: int
-    reason:   str
-    ts:       datetime
-    expire:   datetime
+    reason: str
+    ts: datetime
+    expire: datetime
+
 
 class KLineTable(Table):
     async def get(self, id: int) -> DBKLine:
@@ -70,15 +71,12 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, mask)
 
-    async def add(self,
-            source:   str,
-            oper:     str,
-            mask:     str,
-            duration: int,
-            reason:   str) -> int:
+    async def add(
+        self, source: str, oper: str, mask: str, duration: int, reason: str
+    ) -> int:
 
         utcnow = datetime.utcnow()
-        query  = """
+        query = """
             INSERT INTO kline
             (mask, search_mask, source, oper, duration, reason, ts, expire)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -92,11 +90,10 @@ class KLineTable(Table):
             duration,
             reason,
             utcnow,
-            utcnow + timedelta(seconds=duration)
+            utcnow + timedelta(seconds=duration),
         ]
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
-
 
     async def reject_hit(self, kline_id: int) -> None:
         query = """
@@ -108,10 +105,9 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, kline_id)
 
-    async def find_by_ts(self,
-            ts:    datetime,
-            fudge: int = 1
-            ) -> Collection[Tuple[int, datetime]]:
+    async def find_by_ts(
+        self, ts: datetime, fudge: int = 1
+    ) -> Collection[Tuple[int, datetime]]:
 
         query = """
             SELECT id, ts FROM kline
@@ -137,10 +133,9 @@ class KLineTable(Table):
             rows = await conn.fetch(query, oper, count)
         return [r[0] for r in rows]
 
-    async def _find_klines(self,
-            where: str,
-            *args: Any
-            ) -> Collection[Tuple[int, datetime]]:
+    async def _find_klines(
+        self, where: str, *args: Any
+    ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
             SELECT id, ts
@@ -153,10 +148,8 @@ class KLineTable(Table):
 
         return rows
 
-    async def find_by_mask_glob(self,
-            mask: str
-            ) -> Collection[Tuple[int, datetime]]:
+    async def find_by_mask_glob(self, mask: str) -> Collection[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(mask))
-        param   = str(self.to_search(pattern, SearchType.MASK))
+        param = str(self.to_search(pattern, SearchType.MASK))
         return await self._find_klines("WHERE search_mask LIKE $1", param)

@@ -1,46 +1,46 @@
 import asyncio, ipaddress, re, time
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime    import datetime, timedelta
-from ipaddress   import IPv4Address, IPv6Address
-from json        import loads as json_loads
-from typing      import Dict, List, Optional, Set, Tuple, Union
-from typing      import OrderedDict as TOrderedDict
+from datetime import datetime, timedelta
+from ipaddress import IPv4Address, IPv6Address
+from json import loads as json_loads
+from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import OrderedDict as TOrderedDict
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
 from ircstates.numerics import *
-from ircrobots.ircv3    import Capability
+from ircrobots.ircv3 import Capability
 from ircrobots.matching import ANY, Folded, Response, SELF
 
-from .config    import Config
-from .database  import Database, DBKLine
+from .config import Config
+from .database import Database, DBKLine
 from .normalise import RFC1459SearchNormaliser
 
-from .util      import oper_up, pretty_delta, get_statsp, get_klines
-from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util      import looks_like_glob, colourise
+from .util import oper_up, pretty_delta, get_statsp, get_klines
+from .util import try_parse_cidr, try_parse_ip, try_parse_ts
+from .util import looks_like_glob, colourise
 
 from .parse.nickserv import NickServParser
 from .parse.snote import SnoteParser
 
-RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
+RE_DATE = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
 
+
 @dataclass
 class Caller:
-    nick:   str
+    nick: str
     source: str
-    oper:   str
+    oper: str
 
-PREFERENCES: Dict[str, type] = {
-    "statsp": bool,
-    "knag": bool
-}
+
+PREFERENCES: Dict[str, type] = {"statsp": bool, "knag": bool}
+
 
 class Server(BaseServer):
     database: Database
@@ -48,15 +48,12 @@ class Server(BaseServer):
     _nickserv: NickServParser
     _snote: SnoteParser
 
-    def __init__(self,
-            bot:    BaseBot,
-            name:   str,
-            config: Config):
+    def __init__(self, bot: BaseBot, name: str, config: Config):
 
         super().__init__(bot, name)
         self.desired_caps.add(CAP_OPER)
 
-        self._config  = config
+        self._config = config
 
         self._database_init: bool = False
 
@@ -70,16 +67,14 @@ class Server(BaseServer):
             return
         async with self.read_lock:
             for oper, mask in await get_statsp(self):
-                pref = await self.database.preference.get(
-                    oper, "statsp"
-                )
+                pref = await self.database.preference.get(oper, "statsp")
                 if pref == False:
                     # explicitly `== False` because it could also be None
                     continue
                 await self.database.statsp.add(oper, mask, now)
 
     async def _compare_klines(self):
-        klines_db  = await self.database.kline.list_active()
+        klines_db = await self.database.kline.list_active()
         klines_irc = await get_klines(self)
 
         # None if we didn't have permission to do it
@@ -93,9 +88,10 @@ class Server(BaseServer):
     async def _log(self, text: str):
         if self._config.log is not None:
             await self.send(build("PRIVMSG", [self._config.log, text]))
+
     async def _knag(self, oper: str, nick: str, kline_id: int, kline: DBKLine) -> None:
         pref = await self.database.preference.get(oper, "knag")
-        if not pref == True: # == True because it could be None
+        if not pref == True:  # == True because it could be None
             return
 
         out = (
@@ -131,7 +127,7 @@ class Server(BaseServer):
                 self._config.db_pass,
                 self._config.db_host,
                 self._config.db_name,
-                RFC1459SearchNormaliser()
+                RFC1459SearchNormaliser(),
             )
             self._database_init = True
 
@@ -148,17 +144,21 @@ class Server(BaseServer):
             await self.send(build("MODE", [self.nickname, "-s+s", "+BFckns"]))
             await self._compare_klines()
 
-        elif (line.command == "NOTICE" and
-                line.params[0] == "*" and
-                line.source is not None and
-                not "!" in line.source
-                and self.registered):
+        elif (
+            line.command == "NOTICE"
+            and line.params[0] == "*"
+            and line.source is not None
+            and not "!" in line.source
+            and self.registered
+        ):
 
             await self._snote.handle(line)
 
-        elif (line.command == "PRIVMSG"
-                and line.source is not None
-                and not self.is_me(line.hostmask.nickname)):
+        elif (
+            line.command == "PRIVMSG"
+            and line.source is not None
+            and not self.is_me(line.hostmask.nickname)
+        ):
 
             await self._on_message(line)
 
@@ -171,35 +171,26 @@ class Server(BaseServer):
         if self.is_me(line.params[0]):
             # private message
             await self.cmd(
-                line.hostmask,
-                line.hostmask.nickname,
-                first.lower(),
-                rest,
-                line.tags
+                line.hostmask, line.hostmask.nickname, first.lower(), rest, line.tags
             )
             return
 
-        elif rest and first in {
-            f"{self.nickname}{c}" for c in [":", ",", ""]
-        }:
+        elif rest and first in {f"{self.nickname}{c}" for c in [":", ",", ""]}:
             # highlight in channel
             command, _, args = rest.partition(" ")
             await self.cmd(
-                line.hostmask,
-                line.params[0],
-                command.lower(),
-                args,
-                line.tags
+                line.hostmask, line.params[0], command.lower(), args, line.tags
             )
             return
 
-    async def cmd(self,
-            who:     Hostmask,
-            target:  str,
-            command: str,
-            args:    str,
-            tags:    Optional[Dict[str, str]]
-            ):
+    async def cmd(
+        self,
+        who: Hostmask,
+        target: str,
+        command: str,
+        args: str,
+        tags: Optional[Dict[str, str]],
+    ):
 
         if tags and (oper := tags.get("solanum.chat/oper", "")):
             caller = Caller(who.nickname, str(who), oper)
@@ -210,38 +201,27 @@ class Server(BaseServer):
                     await self.send(build("NOTICE", [target, out]))
 
     async def cmd_help(self, caller: Caller, args: str):
-        me      = self.nickname
+        me = self.nickname
         command = args.lstrip().split(" ", 1)[0]
         if not command:
-            return [
-                "available commands: kcheck",
-                f"usage: /msg {me} help <command>"
-            ]
+            return ["available commands: kcheck", f"usage: /msg {me} help <command>"]
         elif command == "kcheck":
             return [
                 "search for bans that affected a nick/host/ip",
-                f"usage: /msg {me} check <nick|host|ip> <query>"
+                f"usage: /msg {me} check <nick|host|ip> <query>",
             ]
         else:
             return ["unknown command"]
 
-    async def _ktag(self,
-            kline_id: int,
-            tag:      str,
-            caller:   Caller):
+    async def _ktag(self, kline_id: int, tag: str, caller: Caller):
 
         if await self.database.kline_tag.exists(kline_id, tag):
             return [f"k-line {kline_id} is already tagged as '{tag}'"]
 
-        await self.database.kline_tag.add(
-            kline_id, tag, caller.source, caller.oper
-        )
+        await self.database.kline_tag.add(kline_id, tag, caller.source, caller.oper)
         kline = await self.database.kline.get(kline_id)
-        kts   = pretty_delta(datetime.utcnow()-kline.ts)
-        return [
-            f"tagged {kts} old k-line"
-            f" (#{kline_id} \2{kline.mask}\2) as {tag}"
-        ]
+        kts = pretty_delta(datetime.utcnow() - kline.ts)
+        return [f"tagged {kts} old k-line" f" (#{kline_id} \2{kline.mask}\2) as {tag}"]
 
     async def cmd_ktag(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
@@ -253,6 +233,7 @@ class Server(BaseServer):
             return [f"k-line {kline_id} not found"]
 
         return await self._ktag(kline_id, args[1], caller)
+
     async def cmd_unktag(self, caller: Caller, sargs: str):
         args = sargs.split(None, 2)
         if len(args) < 2:
@@ -293,16 +274,16 @@ class Server(BaseServer):
 
         type, queryv, *_ = args
         query = queryv.split()[0]
-        type  = type.lower()
-        db    = self.database
-        now   = datetime.utcnow()
+        type = type.lower()
+        db = self.database
+        now = datetime.utcnow()
 
         limit = 3
         if args and (limit_s := args[0]).isdigit():
             limit = int(limit_s)
 
         klines_: List[Tuple[int, datetime]] = []
-        if   type == "nick":
+        if type == "nick":
             klines_ += await db.kline_kill.find_by_nick(query)
             klines_ += await db.kline_reject.find_by_nick(query)
         elif type == "host":
@@ -317,8 +298,7 @@ class Server(BaseServer):
         elif type == "tag":
             klines_ += await db.kline_tag.find(query)
         elif type == "id":
-            if (not query.isdigit()
-                    or not await db.kline.exists(query_id := int(query))):
+            if not query.isdigit() or not await db.kline.exists(query_id := int(query)):
                 return [f"unknown k-line id {query}"]
             # kinda annoying that we get the k-line here just to pull
             # out ts + id, then we use that id later to get the same
@@ -347,21 +327,21 @@ class Server(BaseServer):
 
         outs: List[str] = []
         for kline_id, _ in klines:
-            kline  = await db.kline.get(kline_id)
+            kline = await db.kline.get(kline_id)
             remove = await db.kline_remove.get(kline_id)
 
-            kts_human = pretty_delta(now-kline.ts)
+            kts_human = pretty_delta(now - kline.ts)
             if remove is not None:
-                remover  = remove.oper or "unknown"
+                remover = remove.oper or "unknown"
                 remove_s = f"\x0303removed\x03 by \x02{remover}\x02"
             elif kline.expire < now:
-                ts_since = pretty_delta(now-kline.expire)
+                ts_since = pretty_delta(now - kline.expire)
                 remove_s = f"\x0303expired {ts_since} ago\x03"
             else:
-                ts_left  = pretty_delta(kline.expire-now)
+                ts_left = pretty_delta(kline.expire - now)
                 remove_s = f"\x0304{ts_left} remaining\x03"
 
-            kills   = await db.kline_kill.find_by_kline(kline_id)
+            kills = await db.kline_kill.find_by_kline(kline_id)
             rejects = await db.kline_reject.find_by_kline(kline_id)
             affected: List[NickUserHost] = list(kills) + list(rejects)
 
@@ -388,11 +368,11 @@ class Server(BaseServer):
 
         type, query, *_ = args
         type = type.lower()
-        db   = self.database
-        now  = datetime.utcnow()
+        db = self.database
+        now = datetime.utcnow()
 
         cliconns_: List[Tuple[int, datetime]] = []
-        if   type == "nick":
+        if type == "nick":
             cliconns_ += await db.cliconn.find_by_nick(query)
             cliconns_ += await db.nick_change.find_cliconn(query)
         elif type == "user":
@@ -414,21 +394,18 @@ class Server(BaseServer):
         # cut out duplicates
         # the database code does this already, but we might compile from
         # multiple database calls
-        cliconns = sorted(
-            set(cliconns_), key=lambda c: c[1], reverse=True
-        )
+        cliconns = sorted(set(cliconns_), key=lambda c: c[1], reverse=True)
         # cut it to 3 results. database code also does this, but see above
         cliconns = cliconns[:3]
 
         outs: List[str] = []
         for cliconn_id, _ in cliconns:
-            cliconn   = await db.cliconn.get(cliconn_id)
-            cts_human = pretty_delta(now-cliconn.ts)
-            nick_chg  = await db.nick_change.get(cliconn_id)
+            cliconn = await db.cliconn.get(cliconn_id)
+            cts_human = pretty_delta(now - cliconn.ts)
+            nick_chg = await db.nick_change.get(cliconn_id)
 
             outs.append(
-                f"\x02{cts_human}\x02 ago -"
-                f" {cliconn.nuh()} [{cliconn.realname}]"
+                f"\x02{cts_human}\x02 ago -" f" {cliconn.nuh()} [{cliconn.realname}]"
             )
             if nick_chg:
                 nick_chg_s = ", ".join(nick_chg)
@@ -458,7 +435,7 @@ class Server(BaseServer):
 
     async def cmd_pref(self, caller: Caller, sargs: str):
         args = sargs.split(None, 1)
-        db   = self.database
+        db = self.database
         if len(args) == 0:
             keys = ", ".join(sorted(PREFERENCES.keys()))
             return [f"available preferences: {keys}"]
@@ -475,8 +452,10 @@ class Server(BaseServer):
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")
+
     def line_presend(self, line: Line):
         print(f"> {line.format()}")
+
 
 class Bot(BaseBot):
     def __init__(self, config: Config):
@@ -485,4 +464,3 @@ class Bot(BaseBot):
 
     def create_server(self, name: str):
         return Server(self, name, self._config)
-

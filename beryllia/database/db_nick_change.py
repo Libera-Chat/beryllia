@@ -1,9 +1,10 @@
-from datetime    import datetime
-from typing      import Sequence, Tuple
+from datetime import datetime
+from typing import Sequence, Tuple
 
-from .common     import Table
+from .common import Table
 from ..normalise import SearchType
-from ..util      import glob_to_sql, lex_glob_pattern
+from ..util import glob_to_sql, lex_glob_pattern
+
 
 class NickChangeTable(Table):
     async def add(self, cliconn_id: int, nickname: str):
@@ -32,9 +33,7 @@ class NickChangeTable(Table):
             rows = await conn.fetch(query, cliconn_id)
         return [row[0] for row in rows]
 
-    async def find_cliconn(self,
-            nickname: str
-            ) -> Sequence[Tuple[int, datetime]]:
+    async def find_cliconn(self, nickname: str) -> Sequence[Tuple[int, datetime]]:
 
         query = """
             SELECT DISTINCT(cliconn.id), cliconn.ts
@@ -45,6 +44,6 @@ class NickChangeTable(Table):
         """
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
-        param   = str(self.to_search(pattern, SearchType.NICK))
+        param = str(self.to_search(pattern, SearchType.NICK))
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, param)

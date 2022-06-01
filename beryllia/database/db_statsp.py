@@ -1,14 +1,12 @@
 from collections import OrderedDict
-from datetime    import datetime
-from typing      import OrderedDict as TOrderedDict
+from datetime import datetime
+from typing import OrderedDict as TOrderedDict
 
-from .common     import Table
+from .common import Table
+
 
 class StatsPTable(Table):
-    async def add(self,
-            oper: str,
-            mask: str,
-            ts:   datetime):
+    async def add(self, oper: str, mask: str, ts: datetime):
 
         query = """
             INSERT INTO statsp (oper, mask, ts)
@@ -17,9 +15,7 @@ class StatsPTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, oper, mask, ts)
 
-    async def count_since(self,
-            ts: datetime
-            ) -> TOrderedDict[str, int]:
+    async def count_since(self, ts: datetime) -> TOrderedDict[str, int]:
 
         query = """
             SELECT oper, COUNT(*) AS minutes

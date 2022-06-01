@@ -3,9 +3,10 @@ from argparse import ArgumentParser
 
 from ircrobots import ConnectionParams, SASLUserPass
 
-from .       import Bot
+from . import Bot
 from .config import Config, load as config_load
-from .cron   import cron
+from .cron import cron
+
 
 async def main(config: Config):
     bot = Bot(config)
@@ -16,7 +17,7 @@ async def main(config: Config):
     params.username = config.username
     params.realname = config.realname
     params.password = config.password
-    params.sasl     = SASLUserPass(sasl_user, sasl_pass)
+    params.sasl = SASLUserPass(sasl_user, sasl_pass)
 
     autojoin = list(config.channels)
     if config.log is not None:
@@ -24,15 +25,13 @@ async def main(config: Config):
     params.autojoin = autojoin
 
     await bot.add_server("beryllia", params)
-    await asyncio.gather(
-        cron(bot),
-        bot.run()
-    )
+    await asyncio.gather(cron(bot), bot.run())
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("config")
-    args   = parser.parse_args()
+    args = parser.parse_args()
 
     config = config_load(args.config)
     asyncio.run(main(config))

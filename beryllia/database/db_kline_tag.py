@@ -1,16 +1,13 @@
-from datetime    import datetime
-from typing      import Collection, Tuple
+from datetime import datetime
+from typing import Collection, Tuple
 
-from .common     import Table
+from .common import Table
 from ..normalise import SearchType
-from ..util      import glob_to_sql, lex_glob_pattern
+from ..util import glob_to_sql, lex_glob_pattern
+
 
 class KLineTagTable(Table):
-    async def add(self,
-            kline_id: int,
-            tag:      str,
-            source:   str,
-            oper:     str):
+    async def add(self, kline_id: int, tag: str, source: str, oper: str):
 
         query = """
             INSERT INTO kline_tag
@@ -24,7 +21,7 @@ class KLineTagTable(Table):
                 tag,
                 str(self.to_search(tag, SearchType.TAG)),
                 source,
-                oper
+                oper,
             )
 
     async def remove(self, kline_id: int, tag: str):
@@ -35,9 +32,7 @@ class KLineTagTable(Table):
         """
         async with self.pool.acquire() as conn:
             await conn.execute(
-                query,
-                kline_id,
-                str(self.to_search(tag, SearchType.TAG))
+                query, kline_id, str(self.to_search(tag, SearchType.TAG))
             )
 
     async def exists(self, kline_id: int, tag: str) -> bool:
@@ -48,11 +43,11 @@ class KLineTagTable(Table):
         """
 
         async with self.pool.acquire() as conn:
-            return bool(await conn.fetchval(
-                query,
-                kline_id,
-                str(self.to_search(tag, SearchType.TAG))
-            ))
+            return bool(
+                await conn.fetchval(
+                    query, kline_id, str(self.to_search(tag, SearchType.TAG))
+                )
+            )
 
     async def find(self, tag: str) -> Collection[Tuple[int, datetime]]:
         query = """
@@ -63,6 +58,6 @@ class KLineTagTable(Table):
             WHERE kline_tag.search_tag LIKE $1
         """
         pattern = glob_to_sql(lex_glob_pattern(tag))
-        param   = str(self.to_search(pattern, SearchType.TAG))
+        param = str(self.to_search(pattern, SearchType.TAG))
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, param)

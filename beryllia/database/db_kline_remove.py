@@ -1,24 +1,23 @@
 from dataclasses import dataclass
-from datetime    import datetime, timedelta
-from ipaddress   import IPv4Address, IPv6Address
-from ipaddress   import IPv4Network, IPv6Network
-from typing      import Any, Collection, Optional, Tuple, Union
+from datetime import datetime, timedelta
+from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Network, IPv6Network
+from typing import Any, Collection, Optional, Tuple, Union
 
-from .common     import Table
+from .common import Table
 from ..normalise import SearchType
-from ..util      import lex_glob_pattern, glob_to_sql
+from ..util import lex_glob_pattern, glob_to_sql
+
 
 @dataclass
 class DBKLineRemove(object):
     source: str
-    oper:   str
-    ts:     datetime
+    oper: str
+    ts: datetime
+
 
 class KLineRemoveTable(Table):
-    async def add(self,
-            id:     int,
-            source: Optional[str],
-            oper:   Optional[str]):
+    async def add(self, id: int, source: Optional[str], oper: Optional[str]):
 
         query = """
             INSERT INTO kline_remove (kline_id, source, oper, ts)

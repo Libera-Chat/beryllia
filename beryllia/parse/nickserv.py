@@ -17,11 +17,15 @@ RE_COMMAND = re_compile(
 
 _TYPE_HANDLER = Callable[[Any, str, Optional[str], str], Awaitable[None]]
 _HANDLERS: Dict[str, _TYPE_HANDLER] = {}
+
+
 def _handler(command: str) -> Callable[[_TYPE_HANDLER], _TYPE_HANDLER]:
     def _inner(func: _TYPE_HANDLER) -> _TYPE_HANDLER:
         _HANDLERS[command] = func
         return func
+
     return _inner
+
 
 class NickServParser(IRCParser):
     def __init__(self, database: Database):
@@ -67,9 +71,9 @@ class NickServParser(IRCParser):
             resolved_ids.append(record_id)
 
     @_handler("REGISTER")
-    async def _handle_REGISTER(self,
-            nickname: str, _account: Optional[str], args: str
-            ) -> None:
+    async def _handle_REGISTER(
+        self, nickname: str, _account: Optional[str], args: str
+    ) -> None:
 
         match = re_search("^(?P<account>\S+) to (?P<email>\S+)$", args)
         if match is None:
@@ -86,9 +90,9 @@ class NickServParser(IRCParser):
         await self._resolve_email(registration_id, email)
 
     @_handler("DROP")
-    async def _handle_DROP(self,
-            nickname: str, account: Optional[str], args: str
-            ) -> None:
+    async def _handle_DROP(
+        self, nickname: str, account: Optional[str], args: str
+    ) -> None:
 
         if not args in self._registration_ids:
             return
@@ -96,9 +100,9 @@ class NickServParser(IRCParser):
         del self._registration_ids[args]
 
     @_handler("SET:ACCOUNTNAME")
-    async def _handle_SET_ACCOUNTNAME(self,
-            nickname: str, account: Optional[str], args: str
-            ) -> None:
+    async def _handle_SET_ACCOUNTNAME(
+        self, nickname: str, account: Optional[str], args: str
+    ) -> None:
 
         if not account in self._registration_ids:
             return
@@ -107,9 +111,9 @@ class NickServParser(IRCParser):
         self._registration_ids[args] = registration_id
 
     @_handler("VERIFY:REGISTER")
-    async def _handle_VERIFY_REGISTER(self,
-            nickname: str, _account: Optional[str], args: str
-            ) -> None:
+    async def _handle_VERIFY_REGISTER(
+        self, nickname: str, _account: Optional[str], args: str
+    ) -> None:
 
         match = re_search(r"^(?P<account>\S+) ", args)
         if match is None:

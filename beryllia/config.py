@@ -1,20 +1,21 @@
 from dataclasses import dataclass
-from os.path     import expanduser
-from re          import compile as re_compile
-from typing      import Optional, Sequence, Tuple
+from os.path import expanduser
+from re import compile as re_compile
+from typing import Optional, Sequence, Tuple
 
 import yaml
 
+
 @dataclass
 class Config(object):
-    server:   str
+    server: str
     nickname: str
     username: str
     realname: str
     password: str
     channels: Sequence[str]
-    log:      Optional[str]
-    rejects:  int
+    log: Optional[str]
+    rejects: int
 
     sasl: Tuple[str, str]
     oper: Tuple[str, str, str]
@@ -23,6 +24,7 @@ class Config(object):
     db_pass: Optional[str]
     db_host: Optional[str]
     db_name: str
+
 
 def load(filepath: str):
     with open(filepath) as file:
@@ -48,5 +50,5 @@ def load(filepath: str):
         config_yaml["database"]["user"],
         config_yaml["database"].get("pass", None),
         config_yaml["database"].get("host", None),
-        config_yaml["database"]["name"]
+        config_yaml["database"]["name"],
     )

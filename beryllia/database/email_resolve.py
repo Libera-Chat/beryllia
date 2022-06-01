@@ -2,12 +2,15 @@ from typing import Optional
 
 from .common import Table
 
+
 class EmailResolveTable(Table):
-    async def add(self,
-            registration_id: int,
-            record_parent:   Optional[int],
-            record_type:     str,
-            record:          str) -> int:
+    async def add(
+        self,
+        registration_id: int,
+        record_parent: Optional[int],
+        record_type: str,
+        record: str,
+    ) -> int:
 
         query = """
             INSERT INTO email_resolve

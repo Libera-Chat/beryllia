@@ -1,20 +1,24 @@
-from datetime    import datetime
-from ipaddress   import IPv4Address, IPv6Address
-from typing      import Any, Collection, Optional, Tuple, Union
+from datetime import datetime
+from ipaddress import IPv4Address, IPv6Address
+from typing import Any, Collection, Optional, Tuple, Union
 
 from .db_kline_kill import DBKLineKill, KLineKillTable
-from ..normalise    import SearchType
+from ..normalise import SearchType
+
 
 class DBKLineReject(DBKLineKill):
     pass
 
+
 class KLineRejectTable(KLineKillTable):
-    async def add(self,
-            kline_id: int,
-            nickname: str,
-            username: str,
-            hostname: str,
-            ip:       Optional[Union[IPv4Address, IPv6Address]]):
+    async def add(
+        self,
+        kline_id: int,
+        nickname: str,
+        username: str,
+        hostname: str,
+        ip: Optional[Union[IPv4Address, IPv6Address]],
+    ):
 
         query = """
             INSERT INTO kline_reject (
@@ -38,18 +42,19 @@ class KLineRejectTable(KLineKillTable):
             hostname,
             str(self.to_search(hostname, SearchType.HOST)),
             ip,
-            kline_id
+            kline_id,
         ]
         async with self.pool.acquire() as conn:
             await conn.execute(query, *args)
 
-    async def find(self,
-            kline_id: int,
-            nickname: str,
-            username: str,
-            hostname: str,
-            ip:       Optional[Union[IPv4Address, IPv6Address]]
-            ) -> Optional[int]:
+    async def find(
+        self,
+        kline_id: int,
+        nickname: str,
+        username: str,
+        hostname: str,
+        ip: Optional[Union[IPv4Address, IPv6Address]],
+    ) -> Optional[int]:
 
         query = """
             SELECT id FROM kline_reject
@@ -64,15 +69,14 @@ class KLineRejectTable(KLineKillTable):
             str(self.to_search(nickname, SearchType.NICK)),
             str(self.to_search(username, SearchType.USER)),
             str(self.to_search(hostname, SearchType.HOST)),
-            ip
+            ip,
         ]
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
 
-    async def _find_klines(self,
-            where: str,
-            *args: Any
-            ) -> Collection[Tuple[int, datetime]]:
+    async def _find_klines(
+        self, where: str, *args: Any
+    ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
             SELECT DISTINCT(kline.id), kline.ts
@@ -87,9 +91,7 @@ class KLineRejectTable(KLineKillTable):
 
         return rows
 
-    async def find_by_kline(self,
-            kline_id: int
-            ) -> Collection[DBKLineReject]:
+    async def find_by_kline(self, kline_id: int) -> Collection[DBKLineReject]:
         query = """
             SELECT id, nickname, username, hostname, ip, ts
             FROM kline_reject
@@ -101,10 +103,7 @@ class KLineRejectTable(KLineKillTable):
 
         return [DBKLineReject(*row) for row in rows]
 
-    async def find_by_hostname(self,
-            kline_id: int,
-            hostname: str
-            ) -> Collection[int]:
+    async def find_by_hostname(self, kline_id: int, hostname: str) -> Collection[int]:
 
         query = """
             SELECT id
@@ -117,9 +116,7 @@ class KLineRejectTable(KLineKillTable):
             rows = await conn.fetch(query, kline_id, search_host)
         return [r[0] for r in rows]
 
-    async def set_kline(self,
-            reject_id: int,
-            kline_id:  int):
+    async def set_kline(self, reject_id: int, kline_id: int):
 
         query = """
             UPDATE kline_reject
