@@ -9,15 +9,16 @@
 BEGIN;
 
 CREATE TABLE kline (
-    id          SERIAL PRIMARY KEY,
-    mask        VARCHAR(92)  NOT NULL,
-    search_mask VARCHAR(92)  NOT NULL,
-    source      VARCHAR(92)  NOT NULL,
-    oper        VARCHAR(16)  NOT NULL,
-    duration    INT          NOT NULL,
-    reason      VARCHAR(260) NOT NULL,
-    ts          TIMESTAMP    NOT NULL,
-    expire      TIMESTAMP    NOT NULL
+    id           SERIAL PRIMARY KEY,
+    mask         VARCHAR(92)  NOT NULL,
+    search_mask  VARCHAR(92)  NOT NULL,
+    source       VARCHAR(92)  NOT NULL,
+    oper         VARCHAR(16)  NOT NULL,
+    duration     INT          NOT NULL,
+    reason       VARCHAR(260) NOT NULL,
+    ts           TIMESTAMP    NOT NULL,
+    expire       TIMESTAMP    NOT NULL,
+    last_reject  TIMESTAMP
 );
 -- for retention period bulk deletion
 CREATE INDEX kline_expire ON kline(expire);

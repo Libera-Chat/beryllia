@@ -98,6 +98,16 @@ class KLineTable(Table):
             return await conn.fetchval(query, *args)
 
 
+    async def reject_hit(self, kline_id: int) -> None:
+        query = """
+            UPDATE kline
+            SET last_reject = NOW()::TIMESTAMP
+            WHERE id = $1
+        """
+
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, kline_id)
+
     async def find_by_ts(self,
             ts:    datetime,
             fudge: int = 1

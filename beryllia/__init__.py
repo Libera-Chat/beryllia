@@ -274,6 +274,8 @@ class Server(BaseServer):
 
                 kline_id = await self.database.kline.find_active(mask)
                 if kline_id is not None:
+                    await self.database.kline.reject_hit(kline_id)
+
                     db = self.database
                     found = await db.kline_reject.find(
                         kline_id, nickname, username, hostname, ip
