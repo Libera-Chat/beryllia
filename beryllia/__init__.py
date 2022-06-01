@@ -7,7 +7,7 @@ from json        import loads as json_loads
 from typing      import Dict, List, Optional, Set, Tuple, Union
 from typing      import OrderedDict as TOrderedDict
 
-from irctokens import build, Hostmask, Line
+from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
@@ -16,7 +16,7 @@ from ircrobots.ircv3    import Capability
 from ircrobots.matching import ANY, Folded, Response, SELF
 
 from .config    import Config
-from .database  import Database
+from .database  import Database, DBKLine
 from .normalise import RFC1459SearchNormaliser
 
 from .util      import oper_up, pretty_delta, get_statsp, get_klines
@@ -24,17 +24,9 @@ from .util      import try_parse_cidr, try_parse_ip, try_parse_ts
 from .util      import looks_like_glob, colourise
 
 from .parse.nickserv import NickServParser
+from .parse.snote import SnoteParser
 
-RE_CLICONN   = re.compile(r"^\*{3} Notice -- Client connecting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<ip>\S+)\] \S+ <(?P<account>\S+)> \[(?P<real>.*)\]$")
-RE_CLIEXIT   = re.compile(r"^\*{3} Notice -- Client exiting: (?P<nick>\S+) \((?P<user>[^@]+)@(?P<host>\S+)\) \[(?P<reason>.*)\] \[(?P<ip>\S+)\]$")
-RE_KLINEADD  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} added (?:temporary|global) (?P<duration>\d+) min\. K-Line for \[(?P<mask>\S+)\] \[(?P<reason>.*)\]$")
-RE_KLINEDEL  = re.compile(r"^\*{3} Notice -- (?P<source>[^{]+)\{(?P<oper>[^}]+)\} has removed the (?:temporary|global) K-Line for: \[(?P<mask>\S+)\]$")
-RE_KLINEEXIT = re.compile(r"^\*{3} Notice -- (?:KLINE active for|Disconnecting K-Lined user) (?P<nickname>\S+)\[[^]]+\] .(?P<mask>\S+).$")
-RE_KLINEREJ  = re.compile(r"^\*{3} Notice -- Rejecting K-Lined user (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\] .(?P<ip>\S+). .(?P<mask>\S+).$")
-RE_NICKCHG   = re.compile(r"^\*{3} Notice -- Nick change: From (?P<old_nick>\S+) to (?P<new_nick>\S+) .(?P<userhost>\S+).$")
 RE_DATE      = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
-
-RE_KLINETAG  = re.compile(r"%(\S+)")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
@@ -52,7 +44,9 @@ PREFERENCES: Dict[str, type] = {
 
 class Server(BaseServer):
     database: Database
+
     _nickserv: NickServParser
+    _snote: SnoteParser
 
     def __init__(self,
             bot:    BaseBot,
@@ -65,9 +59,6 @@ class Server(BaseServer):
         self._config  = config
 
         self._database_init: bool = False
-        self._wait_for_exit: Dict[str, str] = {}
-
-        self._cliconns: Dict[str, int] = {}
 
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
@@ -98,15 +89,26 @@ class Server(BaseServer):
     async def _log(self, text: str):
         if self._config.log is not None:
             await self.send(build("PRIVMSG", [self._config.log, text]))
-    async def _knag(self, oper: str, nick: str, kline_id: int):
+    async def _knag(self, oper: str, nick: str, kline_id: int, kline: DBKLine) -> None:
         pref = await self.database.preference.get(oper, "knag")
         if pref == True: # == True because it could be None
-            kline = await self.database.kline.get(kline_id)
             out = (
                 f"k-line \2#{kline_id}\2 ({kline.mask}) set without a tag;"
                 f" '/msg {self.nickname} ktag {kline_id} taghere' to tag it"
             )
             await self.send(build("NOTICE", [nick, out]))
+
+    async def _kline_new(self, kline_id: int) -> None:
+        kline = await self.database.kline.get(kline_id)
+
+        nickname = hostmask_parse(kline.source).nickname
+        await self._knag(kline.oper, nickname, kline_id, kline)
+
+        await self._log(
+            f"KLINE:NEW: \2{kline_id}\2"
+            f" by {colourise(kline.oper)}:"
+            f" {kline.mask} {kline.reason}"
+        )
 
     async def line_read(self, line: Line):
         now = time.monotonic()
@@ -126,7 +128,9 @@ class Server(BaseServer):
                 RFC1459SearchNormaliser()
             )
             self._database_init = True
+
             self._nickserv = NickServParser(database)
+            self._snote = SnoteParser(database, self._config.rejects, self._kline_new)
 
         elif line.command == RPL_YOUREOPER:
             # B connections rejected due to k-line
@@ -141,152 +145,10 @@ class Server(BaseServer):
         elif (line.command == "NOTICE" and
                 line.params[0] == "*" and
                 line.source is not None and
-                not "!" in line.source):
+                not "!" in line.source
+                and self.registered):
 
-            # snote!
-
-            message     = line.params[1]
-            p_cliconn   = RE_CLICONN.search(message)
-            p_cliexit   = RE_CLIEXIT.search(message)
-            p_klineadd  = RE_KLINEADD.search(message)
-            p_klinedel  = RE_KLINEDEL.search(message)
-            p_klineexit = RE_KLINEEXIT.search(message)
-            p_klinerej  = RE_KLINEREJ.search(message)
-            p_nickchg   = RE_NICKCHG.search(message)
-
-            if p_cliconn is not None:
-                nickname = p_cliconn.group("nick")
-                username = p_cliconn.group("user")
-                realname = p_cliconn.group("real")
-                hostname = p_cliconn.group("host")
-
-                ip: Optional[Union[IPv4Address, IPv6Address]] = None
-                if not (ip_str := p_cliconn.group("ip")) == "0":
-                    ip = ipaddress.ip_address(ip_str)
-
-                account: Optional[str] = None
-                if not (account_ := p_cliconn.group("account")) == "*":
-                    account = account_
-
-                cliconn_id = await self.database.cliconn.add(
-                    nickname,
-                    username,
-                    realname,
-                    hostname,
-                    account,
-                    ip,
-                    line.source
-                )
-                self._cliconns[nickname] = cliconn_id
-
-            elif p_nickchg is not None:
-                old_nick = p_nickchg.group("old_nick")
-                new_nick = p_nickchg.group("new_nick")
-                if old_nick in self._cliconns:
-                    cliconn_id = self._cliconns.pop(old_nick)
-                    self._cliconns[new_nick] = cliconn_id
-                    await self.database.nick_change.add(cliconn_id, new_nick)
-
-            elif p_cliexit is not None:
-                nickname = p_cliexit.group("nick")
-                username = p_cliexit.group("user")
-                hostname = p_cliexit.group("host")
-                reason   = p_cliexit.group("reason")
-
-                ip: Optional[Union[IPv4Address, IPv6Address]] = None
-                if not (ip_str := p_cliexit.group("ip")) == "0":
-                    ip = ipaddress.ip_address(ip_str)
-
-                cliconn_id: Optional[int] = None
-                if nickname in self._cliconns:
-                    cliconn_id = self._cliconns.pop(nickname)
-
-                await self.database.cliexit.add(
-                    cliconn_id, nickname, username, hostname, ip, reason
-                )
-
-                if nickname in self._wait_for_exit:
-                    mask     = self._wait_for_exit.pop(nickname)
-                    kline_id = await self.database.kline.find_active(mask)
-                    if kline_id is not None:
-                        await self.database.kline_kill.add(
-                            kline_id, nickname, username, hostname, ip
-                        )
-
-            elif p_klineadd is not None:
-                source   = p_klineadd.group("source")
-                oper     = p_klineadd.group("oper")
-                mask     = p_klineadd.group("mask")
-                duration = p_klineadd.group("duration")
-                reason   = p_klineadd.group("reason")
-
-                old_id = await self.database.kline.find_active(mask)
-                id     = await self.database.kline.add(
-                    source, oper, mask, int(duration)*60, reason
-                )
-
-                for tag_match in (tags := list(RE_KLINETAG.finditer(reason))):
-                    tag = tag_match.group(1)
-                    if not await self.database.kline_tag.exists(id, tag):
-                        await self.database.kline_tag.add(
-                            id, tag, source, oper
-                        )
-
-                # if an existing k-line is being extended/updated, update
-                # kills affected by the first k-line
-                if old_id is not None:
-                    db    = self.database
-                    kills = await db.kline_kill.find_by_kline(old_id)
-                    for kill in kills:
-                        await db.kline_kill.set_kline(kill.id, id)
-
-                if not tags:
-                    await self._knag(oper, source.split("!", 1)[0], id)
-
-                oper_colour = colourise(oper)
-                await self._log(
-                    f"KLINE:NEW: \2{id}\2 by {oper_colour}: {mask} {reason}"
-                )
-
-            elif p_klinedel is not None:
-                source = p_klinedel.group("source")
-                oper   = p_klinedel.group("oper")
-                mask   = p_klinedel.group("mask")
-                id     = await self.database.kline.find_active(mask)
-                if id is not None:
-                    await self.database.kline_remove.add(id, source, oper)
-
-            elif p_klineexit is not None:
-                nickname = p_klineexit.group("nickname")
-                mask     = p_klineexit.group("mask")
-                # we wait until cliexit because that snote has an IP in it
-                self._wait_for_exit[nickname] = mask
-
-            elif p_klinerej is not None:
-                nickname = p_klinerej.group("nick")
-                username = p_klinerej.group("user")
-                hostname = p_klinerej.group("host")
-                mask     = p_klinerej.group("mask")
-
-                ip: Optional[Union[IPv4Address, IPv6Address]] = None
-                if not (ip_str := p_klinerej.group("ip")) == "0":
-                    ip = ipaddress.ip_address(ip_str)
-
-                kline_id = await self.database.kline.find_active(mask)
-                if kline_id is not None:
-                    await self.database.kline.reject_hit(kline_id)
-
-                    db = self.database
-                    found = await db.kline_reject.find(
-                        kline_id, nickname, username, hostname, ip
-                    )
-                    others = await db.kline_reject.find_by_hostname(
-                        kline_id, hostname
-                    )
-                    if found is None and len(others) < self._config.rejects:
-                        await self.database.kline_reject.add(
-                            kline_id, nickname, username, hostname, ip
-                        )
+            await self._snote.handle(line)
 
         elif (line.command == "PRIVMSG"
                 and line.source is not None
