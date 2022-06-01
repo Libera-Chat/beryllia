@@ -1,14 +1,14 @@
 import asyncpg
 
-from .db_cliconns import *
-from .db_nick_change import *
-from .db_statsp import *
-from .db_kline import *
-from .db_kline_kill import *
-from .db_kline_reject import *
-from .db_kline_remove import *
-from .db_kline_tag import *
-from .db_preference import *
+from .cliconn import CliconnTable, CliexitTable
+from .nick_change import NickChangeTable
+from .statsp import StatsPTable
+from .kline import DBKLine, KLineTable
+from .kline_kill import KLineKillTable
+from .kline_reject import KLineRejectTable
+from .kline_remove import KLineRemoveTable
+from .kline_tag import KLineTagTable
+from .preference import PreferenceTable
 
 from .registration import RegistrationTable
 from .email_resolve import EmailResolveTable

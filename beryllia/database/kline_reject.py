@@ -2,7 +2,7 @@ from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address
 from typing import Any, Collection, Optional, Tuple, Union
 
-from .db_kline_kill import DBKLineKill, KLineKillTable
+from .kline_kill import DBKLineKill, KLineKillTable
 from ..normalise import SearchType
 
 
