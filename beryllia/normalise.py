@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Deque
+from typing import Set
 
 from ircstates import casefold, CaseMap
 

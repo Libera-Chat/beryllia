@@ -120,43 +120,37 @@ class CliconnTable(Table):
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param = str(self.to_search(pattern, SearchType.NICK))
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE search_nick LIKE $1", param)
+        return await self._find_cliconns("WHERE search_nick LIKE $1", param)
 
     async def find_by_user(self, username: str) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(username))
         param = str(self.to_search(pattern, SearchType.USER))
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE search_user LIKE $1", param)
+        return await self._find_cliconns("WHERE search_user LIKE $1", param)
 
     async def find_by_host(self, hostname: str) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param = str(self.to_search(pattern, SearchType.HOST))
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE search_host LIKE $1", param)
+        return await self._find_cliconns("WHERE search_host LIKE $1", param)
 
     async def find_by_ip(
         self, ip: Union[IPv4Address, IPv6Address]
     ) -> Sequence[Tuple[int, datetime]]:
 
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE ip = $1", ip)
+        return await self._find_cliconns("WHERE ip = $1", ip)
 
     async def find_by_cidr(
         self, cidr: Union[IPv4Network, IPv6Network]
     ) -> Sequence[Tuple[int, datetime]]:
 
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE ip << $1", cidr)
+        return await self._find_cliconns("WHERE ip << $1", cidr)
 
     async def find_by_ip_glob(self, glob: str) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param = str(self.to_search(pattern, SearchType.HOST))
-        async with self.pool.acquire() as conn:
-            return await self._find_cliconns("WHERE TEXT(ip) LIKE $1", param)
+        return await self._find_cliconns("WHERE TEXT(ip) LIKE $1", param)
 
 
 class CliexitTable(Table):
