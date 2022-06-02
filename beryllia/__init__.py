@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from json import loads as json_loads
 from re import compile as re_compile
+from shlex import split as shlex_split
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
@@ -185,7 +186,7 @@ class Server(BaseServer):
         who: Hostmask,
         target: str,
         command: str,
-        args: str,
+        sargs: str,
         tags: Optional[Dict[str, str]],
     ):
 
@@ -193,16 +194,18 @@ class Server(BaseServer):
             caller = Caller(who.nickname, str(who), oper)
             attrib = f"cmd_{command}"
             if hasattr(self, attrib):
+                args = shlex_split(sargs)
                 outs = await getattr(self, attrib)(caller, args)
                 for out in outs:
                     await self.send(build("NOTICE", [target, out]))
 
     async def cmd_help(self, caller: Caller, args: str):
         me = self.nickname
-        command = args.lstrip().split(" ", 1)[0]
-        if not command:
+        if not args:
             return ["available commands: kcheck", f"usage: /msg {me} help <command>"]
-        elif command == "kcheck":
+
+        command = args[0].lower()
+        if command == "kcheck":
             return [
                 "search for bans that affected a nick/host/ip",
                 f"usage: /msg {me} check <nick|host|ip> <query>",
@@ -220,8 +223,7 @@ class Server(BaseServer):
         kts = pretty_delta(datetime.utcnow() - kline.ts)
         return [f"tagged {kts} old k-line" f" (#{kline_id} \2{kline.mask}\2) as {tag}"]
 
-    async def cmd_ktag(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 2)
+    async def cmd_ktag(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line ID and a tag"]
         elif not args[0].isdigit():
@@ -231,8 +233,7 @@ class Server(BaseServer):
 
         return await self._ktag(kline_id, args[1], caller)
 
-    async def cmd_unktag(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 2)
+    async def cmd_unktag(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line ID and a tag"]
         elif not args[0].isdigit():
@@ -247,8 +248,7 @@ class Server(BaseServer):
         await self.database.kline_tag.remove(kline_id, tag)
         return [f"removed tag '{tag}' from k-line {kline_id}"]
 
-    async def cmd_ktaglast(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 2)
+    async def cmd_ktaglast(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line count and tag"]
         elif not args[0].isdigit():
@@ -264,14 +264,11 @@ class Server(BaseServer):
             outs = ["found no recent k-lines from you"]
         return outs
 
-    async def cmd_kcheck(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 2)
+    async def cmd_kcheck(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a type and query"]
 
-        type, queryv, *_ = args
-        query = queryv.split()[0]
-        type = type.lower()
+        type, query, *args = args
         db = self.database
         now = datetime.utcnow()
 
@@ -280,6 +277,7 @@ class Server(BaseServer):
             limit = int(limit_s)
 
         klines_: List[Tuple[int, datetime]] = []
+        type = type.lower()
         if type == "nick":
             klines_ += await db.kline_kill.find_by_nick(query)
             klines_ += await db.kline_reject.find_by_nick(query)
@@ -289,8 +287,8 @@ class Server(BaseServer):
         elif type == "mask":
             klines_ += await db.kline.find_by_mask_glob(query)
         elif type == "ts":
-            if (dt := try_parse_ts(queryv)) is None:
-                return [f"'{queryv}' does not look like a timestamp"]
+            if (dt := try_parse_ts(query)) is None:
+                return [f"'{query}' does not look like a timestamp"]
             klines_ += await db.kline.find_by_ts(dt)
         elif type == "tag":
             klines_ += await db.kline_tag.find_klines(query)
@@ -358,8 +356,7 @@ class Server(BaseServer):
 
         return outs or ["no results"]
 
-    async def cmd_cliconn(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 2)
+    async def cmd_cliconn(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a type and query"]
 
@@ -430,8 +427,7 @@ class Server(BaseServer):
 
         return outs
 
-    async def cmd_pref(self, caller: Caller, sargs: str):
-        args = sargs.split(None, 1)
+    async def cmd_pref(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         db = self.database
         if len(args) == 0:
             keys = ", ".join(sorted(PREFERENCES.keys()))
