@@ -8,7 +8,6 @@ from ..util import glob_to_sql, lex_glob_pattern
 
 class KLineTagTable(Table):
     async def add(self, kline_id: int, tag: str, source: str, oper: str):
-
         query = """
             INSERT INTO kline_tag
                 (kline_id, tag, search_tag, source, oper, ts)
@@ -49,7 +48,7 @@ class KLineTagTable(Table):
                 )
             )
 
-    async def find(self, tag: str) -> Collection[Tuple[int, datetime]]:
+    async def find_klines(self, tag: str) -> Collection[Tuple[int, datetime]]:
         query = """
             SELECT DISTINCT(kline.id), kline.ts
                 FROM kline_tag
@@ -61,3 +60,14 @@ class KLineTagTable(Table):
         param = str(self.to_search(pattern, SearchType.TAG))
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, param)
+
+    async def find_tags(self, kline_id: int) -> Collection[str]:
+        query = """
+            SELECT tag
+            FROM kline_tag
+            WHERE kline_id = $1
+        """
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.execute(query, kline_id)
+        return {r[0] for r in rows}
