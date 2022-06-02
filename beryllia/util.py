@@ -10,8 +10,8 @@ from ircrobots import Server
 from irctokens import build
 
 from ircchallenge import Challenge
-from ircrobots.matching import ANY, Folded, Response, SELF
-from ircstates.numerics import *
+from ircrobots.matching import ANY, Response, SELF
+from ircstates.numerics import RPL_ENDOFRSACHALLENGE2, RPL_RSACHALLENGE2
 
 from aiodns import DNSResolver
 from aiodns.error import DNSError
@@ -241,7 +241,6 @@ def find_unescaped(s: str, c: Set[str]) -> List[int]:
 
 def lex_glob_pattern(glob: str) -> CompositeString:
     out = CompositeString()
-    to_find = WILDCARDS_SQL | set(WILDCARDS_GLOB.keys())
     special = set(find_unescaped(glob, set(WILDCARDS_GLOB.keys())))
 
     for index, char in enumerate(glob):
@@ -319,7 +318,7 @@ async def recursive_mx_resolve(
         record_parent, record_type, name = to_resolve.pop(0)
         try:
             resolves = await resolver.query(name, record_type)
-        except DNSError as e:
+        except DNSError:
             # log an error?
             continue
 

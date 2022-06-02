@@ -1,8 +1,7 @@
-from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Union
+from typing import Union
 
-from asyncpg import Connection, Pool
+from asyncpg import Pool
 from ..normalise import SearchNormaliser, SearchType
 from ..util import CompositeString, CompositeStringText
 

@@ -1,9 +1,10 @@
 import asyncpg
+from typing import Optional
 
 from .cliconn import CliconnTable, CliexitTable
 from .nick_change import NickChangeTable
 from .statsp import StatsPTable
-from .kline import DBKLine, KLineTable
+from .kline import KLineTable
 from .kline_kill import KLineKillTable
 from .kline_reject import KLineRejectTable
 from .kline_remove import KLineRemoveTable
@@ -13,7 +14,7 @@ from .preference import PreferenceTable
 from .registration import RegistrationTable
 from .email_resolve import EmailResolveTable
 
-from ..normalise import SearchType, SearchNormaliser
+from ..normalise import SearchNormaliser
 
 
 class Database(object):
@@ -36,8 +37,8 @@ class Database(object):
     async def connect(
         self,
         username: str,
-        password: str,
-        hostname: str,
+        password: Optional[str],
+        hostname: Optional[str],
         db_name: str,
         normaliser: SearchNormaliser,
     ):

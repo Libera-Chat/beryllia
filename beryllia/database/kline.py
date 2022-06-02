@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from ipaddress import IPv4Address, IPv6Address
-from ipaddress import IPv4Network, IPv6Network
-from typing import Any, Collection, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Collection, Dict, Optional, Sequence, Tuple
 
 from .common import Table
 from ..normalise import SearchType

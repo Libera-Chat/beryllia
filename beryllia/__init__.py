@@ -1,22 +1,20 @@
-import asyncio, ipaddress, re, time
-from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from ipaddress import IPv4Address, IPv6Address
 from json import loads as json_loads
-from typing import Dict, List, Optional, Set, Tuple, Union
-from typing import OrderedDict as TOrderedDict
+from re import compile as re_compile
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
-from ircstates.numerics import *
+from ircstates.numerics import RPL_ENDOFMOTD, ERR_NOMOTD, RPL_WELCOME, RPL_YOUREOPER
 from ircrobots.ircv3 import Capability
-from ircrobots.matching import ANY, Folded, Response, SELF
 
 from .config import Config
-from .database import Database, DBKLine
+from .database import Database
+from .database.common import NickUserHost
+from .database.kline import DBKLine
 from .normalise import RFC1459SearchNormaliser
 
 from .util import oper_up, pretty_delta, get_statsp, get_klines
@@ -26,7 +24,7 @@ from .util import looks_like_glob, colourise
 from .parse.nickserv import NickServParser
 from .parse.snote import SnoteParser
 
-RE_DATE = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
+RE_DATE = re_compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
 
 CAP_OPER = Capability(None, "solanum.chat/oper")
 MASK_MAX = 3
@@ -113,8 +111,6 @@ class Server(BaseServer):
         )
 
     async def line_read(self, line: Line):
-        now = time.monotonic()
-
         if line.command == RPL_WELCOME:
             oper_name, oper_file, oper_pass = self._config.oper
             await oper_up(self, oper_name, oper_file, oper_pass)
@@ -343,7 +339,7 @@ class Server(BaseServer):
 
             kills = await db.kline_kill.find_by_kline(kline_id)
             rejects = await db.kline_reject.find_by_kline(kline_id)
-            affected: List[NickUserHost] = list(kills) + list(rejects)
+            affected: Sequence[NickUserHost] = list(kills) + list(rejects)
 
             outs.append(
                 f"K-Line \x02#{kline_id}\x02:"
@@ -416,7 +412,7 @@ class Server(BaseServer):
     async def cmd_statsp(self, caller: Caller, args: str):
         match = RE_DATE.search(args.strip() or "1970-01-01")
         if match is None:
-            return [f"that's not a date"]
+            return ["that's not a date"]
 
         since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
         statsp_d = await self.database.statsp.count_since(since_ts)

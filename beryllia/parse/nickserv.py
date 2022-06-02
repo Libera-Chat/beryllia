@@ -35,8 +35,7 @@ class NickServParser(IRCParser):
 
     async def handle(self, line: Line) -> None:
         message = line.params[1]
-
-        match = RE_COMMAND.search(line.params[1])
+        match = RE_COMMAND.search(message)
         if match is None:
             return
 

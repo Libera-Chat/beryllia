@@ -1,5 +1,5 @@
 from ipaddress import ip_address, IPv4Address, IPv6Address
-from re import compile as re_compile, search as re_search, X as re_X
+from re import compile as re_compile, X as re_X
 from typing import (
     Any,
     Awaitable,
@@ -17,7 +17,6 @@ from irctokens import Line
 
 from .common import IRCParser
 from ..database import Database
-from ..util import recursive_mx_resolve
 
 _TYPE_HANDLER = Callable[[Any, str, Match], Awaitable[None]]
 _HANDLERS: List[Tuple[Pattern, _TYPE_HANDLER]] = []

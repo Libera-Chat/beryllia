@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address
 from ipaddress import IPv4Network, IPv6Network
 from typing import Any, Collection, Optional, Tuple, Union
