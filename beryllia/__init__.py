@@ -101,8 +101,9 @@ class Server(BaseServer):
     async def _kline_new(self, kline_id: int) -> None:
         kline = await self.database.kline.get(kline_id)
 
-        nickname = hostmask_parse(kline.source).nickname
-        await self._knag(kline.oper, nickname, kline_id, kline)
+        if not await self.database.kline_tag.find_tags(kline_id):
+            nickname = hostmask_parse(kline.source).nickname
+            await self._knag(kline.oper, nickname, kline_id, kline)
 
         await self._log(
             f"KLINE:NEW: \2{kline_id}\2"
@@ -292,7 +293,7 @@ class Server(BaseServer):
                 return [f"'{queryv}' does not look like a timestamp"]
             klines_ += await db.kline.find_by_ts(dt)
         elif type == "tag":
-            klines_ += await db.kline_tag.find(query)
+            klines_ += await db.kline_tag.find_klines(query)
         elif type == "id":
             if not query.isdigit() or not await db.kline.exists(query_id := int(query)):
                 return [f"unknown k-line id {query}"]
