@@ -226,7 +226,7 @@ class Server(BaseServer):
     async def cmd_ktag(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line ID and a tag"]
-        elif not args[0].isdigit():
+        elif not args[0].isdecimal():
             return [f"'{args[0]}' doesn't look like a k-line ID"]
         elif not await self.database.kline.exists(kline_id := int(args[0])):
             return [f"k-line {kline_id} not found"]
@@ -236,7 +236,7 @@ class Server(BaseServer):
     async def cmd_unktag(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line ID and a tag"]
-        elif not args[0].isdigit():
+        elif not args[0].isdecimal():
             return [f"'{args[0]}' doesn't look like a k-line ID"]
         elif not await self.database.kline.exists(kline_id := int(args[0])):
             return [f"k-line {kline_id} not found"]
@@ -251,7 +251,7 @@ class Server(BaseServer):
     async def cmd_ktaglast(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
         if len(args) < 2:
             return ["please provide a k-line count and tag"]
-        elif not args[0].isdigit():
+        elif not args[0].isdecimal():
             return [f"'{args[0]}' isn't a number"]
 
         kline_ids = await self.database.kline.find_last_by_oper(
@@ -273,7 +273,7 @@ class Server(BaseServer):
         now = datetime.utcnow()
 
         limit = 3
-        if args and (limit_s := args[0]).isdigit():
+        if args and (limit_s := args[0]).isdecimal():
             limit = int(limit_s)
 
         klines_: List[Tuple[int, datetime]] = []
@@ -293,7 +293,9 @@ class Server(BaseServer):
         elif type == "tag":
             klines_ += await db.kline_tag.find_klines(query)
         elif type == "id":
-            if not query.isdigit() or not await db.kline.exists(query_id := int(query)):
+            if not query.isdecimal() or not await db.kline.exists(
+                query_id := int(query)
+            ):
                 return [f"unknown k-line id {query}"]
             # kinda annoying that we get the k-line here just to pull
             # out ts + id, then we use that id later to get the same
