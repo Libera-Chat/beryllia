@@ -375,6 +375,8 @@ class Server(BaseServer):
             cliconns_ += await db.cliconn.find_by_user(query)
         elif type == "host":
             cliconns_ += await db.cliconn.find_by_host(query)
+        elif type == "real":
+            cliconns_ += await db.cliconn.find_by_real(query)
         elif type == "ip":
             if (ip := try_parse_ip(query)) is not None:
                 cliconns_ += await db.cliconn.find_by_ip(ip)

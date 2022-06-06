@@ -134,6 +134,11 @@ class CliconnTable(Table):
         param = str(self.to_search(pattern, SearchType.HOST))
         return await self._find_cliconns("WHERE search_host LIKE $1", param)
 
+    async def find_by_real(self, realname: str) -> Sequence[Tuple[int, datetime]]:
+        pattern = glob_to_sql(lex_glob_pattern(realname))
+        param = str(self.to_search(pattern, SearchType.REAL))
+        return await self._find_cliconns("WHERE search_real LIKE $1", param)
+
     async def find_by_ip(
         self, ip: Union[IPv4Address, IPv6Address]
     ) -> Sequence[Tuple[int, datetime]]:
