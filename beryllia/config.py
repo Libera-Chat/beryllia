@@ -11,7 +11,7 @@ class Config(object):
     nickname: str
     username: str
     realname: str
-    password: str
+    password: Optional[str]
     channels: Sequence[str]
     log: Optional[str]
     rejects: int
@@ -40,7 +40,7 @@ def load(filepath: str):
         nickname,
         config_yaml.get("username", nickname),
         config_yaml.get("realname", nickname),
-        config_yaml["password"],
+        config_yaml.get("password", None),
         config_yaml["channels"],
         config_yaml.get("log", None),
         config_yaml["rejects"],
