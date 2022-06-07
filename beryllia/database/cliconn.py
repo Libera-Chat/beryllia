@@ -36,6 +36,15 @@ class CliconnTable(Table):
 
         return Cliconn(*row)
 
+    async def exists(self, id: int) -> bool:
+        query = """
+            SELECT 1
+            FROM cliconn
+            WHERE id = $1
+        """
+        async with self.pool.acquire() as conn:
+            return bool(await conn.fetchval(query, id))
+
     async def add(self, cliconn: Cliconn) -> int:
         search_acc: Optional[str] = None
         if cliconn.account is not None:
