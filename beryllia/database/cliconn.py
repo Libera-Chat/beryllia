@@ -103,7 +103,7 @@ class CliconnTable(Table):
             return await conn.fetchval(query, *args)
 
     async def _find_cliconns(
-        self, where: str, *args: Any
+        self, where: str, args: Sequence[Any], count: int
     ) -> Sequence[Tuple[int, datetime]]:
 
         query = f"""
@@ -111,52 +111,63 @@ class CliconnTable(Table):
             FROM cliconn
             {where}
             ORDER BY ts DESC
-            LIMIT 3
+            LIMIT {count}
         """
 
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, *args)
 
-    async def find_by_nick(self, nickname: str) -> Sequence[Tuple[int, datetime]]:
+    async def find_by_nick(
+        self, nickname: str, count: int
+    ) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(nickname))
         param = str(self.to_search(pattern, SearchType.NICK))
-        return await self._find_cliconns("WHERE search_nick LIKE $1", param)
+        return await self._find_cliconns("WHERE search_nick LIKE $1", [param], count)
 
-    async def find_by_user(self, username: str) -> Sequence[Tuple[int, datetime]]:
+    async def find_by_user(
+        self, username: str, count: int
+    ) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(username))
         param = str(self.to_search(pattern, SearchType.USER))
-        return await self._find_cliconns("WHERE search_user LIKE $1", param)
+        return await self._find_cliconns("WHERE search_user LIKE $1", [param], count)
 
-    async def find_by_host(self, hostname: str) -> Sequence[Tuple[int, datetime]]:
+    async def find_by_host(
+        self, hostname: str, count: int
+    ) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(hostname))
         param = str(self.to_search(pattern, SearchType.HOST))
-        return await self._find_cliconns("WHERE search_host LIKE $1", param)
+        return await self._find_cliconns("WHERE search_host LIKE $1", [param], count)
 
-    async def find_by_real(self, realname: str) -> Sequence[Tuple[int, datetime]]:
+    async def find_by_real(
+        self, realname: str, count: int
+    ) -> Sequence[Tuple[int, datetime]]:
+
         pattern = glob_to_sql(lex_glob_pattern(realname))
         param = str(self.to_search(pattern, SearchType.REAL))
-        return await self._find_cliconns("WHERE search_real LIKE $1", param)
+        return await self._find_cliconns("WHERE search_real LIKE $1", [param], count)
 
     async def find_by_ip(
-        self, ip: Union[IPv4Address, IPv6Address]
+        self, ip: Union[IPv4Address, IPv6Address], count: int
     ) -> Sequence[Tuple[int, datetime]]:
 
-        return await self._find_cliconns("WHERE ip = $1", ip)
+        return await self._find_cliconns("WHERE ip = $1", [ip], count)
 
     async def find_by_cidr(
-        self, cidr: Union[IPv4Network, IPv6Network]
+        self, cidr: Union[IPv4Network, IPv6Network], count: int
     ) -> Sequence[Tuple[int, datetime]]:
 
-        return await self._find_cliconns("WHERE ip << $1", cidr)
+        return await self._find_cliconns("WHERE ip << $1", [cidr], count)
 
-    async def find_by_ip_glob(self, glob: str) -> Sequence[Tuple[int, datetime]]:
+    async def find_by_ip_glob(
+        self, glob: str, count: int
+    ) -> Sequence[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(glob))
         param = str(self.to_search(pattern, SearchType.HOST))
-        return await self._find_cliconns("WHERE TEXT(ip) LIKE $1", param)
+        return await self._find_cliconns("WHERE TEXT(ip) LIKE $1", [param], count)
 
 
 class CliexitTable(Table):
