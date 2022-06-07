@@ -377,6 +377,16 @@ class Server(BaseServer):
             cliconns_ += await db.cliconn.find_by_host(query)
         elif type == "real":
             cliconns_ += await db.cliconn.find_by_real(query)
+        elif type == "id":
+            if not query.isdecimal() or not await db.cliconn.exists(
+                query_id := int(query)
+            ):
+                return [f"unknown cliconn id {query}"]
+            # kinda annoying that we get the cliconn here just to pull
+            # out ts + id, then we use that id later to get the same
+            # cliconn again.
+            cliconn = await db.cliconn.get(query_id)
+            cliconns_.append((query_id, cliconn.ts))
         elif type == "ip":
             if (ip := try_parse_ip(query)) is not None:
                 cliconns_ += await db.cliconn.find_by_ip(ip)
