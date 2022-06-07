@@ -10,12 +10,13 @@ from ..util import glob_to_sql, lex_glob_pattern
 
 
 @dataclass
-class DBCliconn(NickUserHost):
+class Cliconn(NickUserHost):
     nickname: str
     username: str
     realname: str
     hostname: str
-    ip: Union[IPv4Address, IPv6Address]
+    account: Optional[str]
+    ip: Optional[Union[IPv4Address, IPv6Address]]
     server: str
     ts: datetime
 
@@ -24,7 +25,7 @@ class DBCliconn(NickUserHost):
 
 
 class CliconnTable(Table):
-    async def get(self, id: int) -> DBCliconn:
+    async def get(self, id: int) -> Cliconn:
         query = """
             SELECT nickname, username, realname, hostname, ip, server, ts
             FROM cliconn
@@ -33,22 +34,12 @@ class CliconnTable(Table):
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, id)
 
-        return DBCliconn(*row)
+        return Cliconn(*row)
 
-    async def add(
-        self,
-        nickname: str,
-        username: str,
-        realname: str,
-        hostname: str,
-        account: Optional[str],
-        ip: Optional[Union[IPv4Address, IPv6Address]],
-        server: str,
-    ) -> int:
-
+    async def add(self, cliconn: Cliconn) -> int:
         search_acc: Optional[str] = None
-        if account is not None:
-            search_acc = str(self.to_search(account, SearchType.NICK))
+        if cliconn.account is not None:
+            search_acc = str(self.to_search(cliconn.account, SearchType.NICK))
 
         query = """
             INSERT INTO cliconn (
@@ -79,23 +70,24 @@ class CliconnTable(Table):
                 $10,
                 $11,
                 $12,
-                NOW()::TIMESTAMP
+                $13
             )
             RETURNING id
         """
         args = [
-            nickname,
-            str(self.to_search(nickname, SearchType.NICK)),
-            username,
-            str(self.to_search(username, SearchType.USER)),
-            realname,
-            str(self.to_search(realname, SearchType.REAL)),
-            hostname,
-            str(self.to_search(hostname, SearchType.HOST)),
-            account,
+            cliconn.nickname,
+            str(self.to_search(cliconn.nickname, SearchType.NICK)),
+            cliconn.username,
+            str(self.to_search(cliconn.username, SearchType.USER)),
+            cliconn.realname,
+            str(self.to_search(cliconn.realname, SearchType.REAL)),
+            cliconn.hostname,
+            str(self.to_search(cliconn.hostname, SearchType.HOST)),
+            cliconn.account,
             search_acc,
-            ip,
-            server,
+            cliconn.ip,
+            cliconn.server,
+            cliconn.ts,
         ]
 
         async with self.pool.acquire() as conn:
