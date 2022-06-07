@@ -362,6 +362,10 @@ class Server(BaseServer):
         if len(args) < 2:
             return ["please provide a type and query"]
 
+        count = 3
+        if len(args) > 2 and (count_s := args[2]).isdecimal():
+            count = int(count_s)
+
         type, query, *_ = args
         type = type.lower()
         db = self.database
@@ -369,14 +373,14 @@ class Server(BaseServer):
 
         cliconns_: List[Tuple[int, datetime]] = []
         if type == "nick":
-            cliconns_ += await db.cliconn.find_by_nick(query)
+            cliconns_ += await db.cliconn.find_by_nick(query, count)
             cliconns_ += await db.nick_change.find_cliconn(query)
         elif type == "user":
-            cliconns_ += await db.cliconn.find_by_user(query)
+            cliconns_ += await db.cliconn.find_by_user(query, count)
         elif type == "host":
-            cliconns_ += await db.cliconn.find_by_host(query)
+            cliconns_ += await db.cliconn.find_by_host(query, count)
         elif type == "real":
-            cliconns_ += await db.cliconn.find_by_real(query)
+            cliconns_ += await db.cliconn.find_by_real(query, count)
         elif type == "id":
             if not query.isdecimal() or not await db.cliconn.exists(
                 query_id := int(query)
@@ -389,11 +393,11 @@ class Server(BaseServer):
             cliconns_.append((query_id, cliconn.ts))
         elif type == "ip":
             if (ip := try_parse_ip(query)) is not None:
-                cliconns_ += await db.cliconn.find_by_ip(ip)
+                cliconns_ += await db.cliconn.find_by_ip(ip, count)
             elif (cidr := try_parse_cidr(query)) is not None:
-                cliconns_ += await db.cliconn.find_by_cidr(cidr)
+                cliconns_ += await db.cliconn.find_by_cidr(cidr, count)
             elif looks_like_glob(query):
-                cliconns_ += await db.cliconn.find_by_ip_glob(query)
+                cliconns_ += await db.cliconn.find_by_ip_glob(query, count)
             else:
                 return [f"'{query}' does not look like an IP address"]
         else:
@@ -403,8 +407,8 @@ class Server(BaseServer):
         # the database code does this already, but we might compile from
         # multiple database calls
         cliconns = sorted(set(cliconns_), key=lambda c: c[1], reverse=True)
-        # cut it to 3 results. database code also does this, but see above
-        cliconns = cliconns[:3]
+        # apply output limit. database code also does this, but see above
+        cliconns = cliconns[:count]
 
         outs: List[str] = []
         for cliconn_id, _ in cliconns:
