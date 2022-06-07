@@ -27,7 +27,7 @@ class Cliconn(NickUserHost):
 class CliconnTable(Table):
     async def get(self, id: int) -> Cliconn:
         query = """
-            SELECT nickname, username, realname, hostname, ip, server, ts
+            SELECT nickname, username, realname, hostname, account, ip, server, ts
             FROM cliconn
             WHERE id = $1
         """
