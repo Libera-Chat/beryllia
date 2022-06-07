@@ -33,9 +33,8 @@ class Database(object):
         self.registration = RegistrationTable(pool, normaliser)
         self.email_resolve = EmailResolveTable(pool, normaliser)
 
-    @classmethod
+    @staticmethod
     async def connect(
-        self,
         username: str,
         password: Optional[str],
         hostname: Optional[str],
