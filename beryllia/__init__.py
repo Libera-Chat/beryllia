@@ -272,26 +272,26 @@ class Server(BaseServer):
         db = self.database
         now = datetime.utcnow()
 
-        limit = 3
-        if args and (limit_s := args[0]).isdecimal():
-            limit = int(limit_s)
+        count = 3
+        if args and (count_s := args[0]).isdecimal():
+            count = int(count_s)
 
         klines_: List[Tuple[int, datetime]] = []
         type = type.lower()
         if type == "nick":
-            klines_ += await db.kline_kill.find_by_nick(query)
-            klines_ += await db.kline_reject.find_by_nick(query)
+            klines_ += await db.kline_kill.find_by_nick(query, count)
+            klines_ += await db.kline_reject.find_by_nick(query, count)
         elif type == "host":
-            klines_ += await db.kline_kill.find_by_host(query)
-            klines_ += await db.kline_reject.find_by_host(query)
+            klines_ += await db.kline_kill.find_by_host(query, count)
+            klines_ += await db.kline_reject.find_by_host(query, count)
         elif type == "mask":
-            klines_ += await db.kline.find_by_mask_glob(query)
+            klines_ += await db.kline.find_by_mask_glob(query, count)
         elif type == "ts":
             if (dt := try_parse_ts(query)) is None:
                 return [f"'{query}' does not look like a timestamp"]
-            klines_ += await db.kline.find_by_ts(dt)
+            klines_ += await db.kline.find_by_ts(dt, count)
         elif type == "tag":
-            klines_ += await db.kline_tag.find_klines(query)
+            klines_ += await db.kline_tag.find_klines(query, count)
         elif type == "id":
             if not query.isdecimal() or not await db.kline.exists(
                 query_id := int(query)
@@ -304,14 +304,14 @@ class Server(BaseServer):
             klines_.append((query_id, kline.ts))
         elif type == "ip":
             if (ip := try_parse_ip(query)) is not None:
-                klines_ += await db.kline_kill.find_by_ip(ip)
-                klines_ += await db.kline_reject.find_by_ip(ip)
+                klines_ += await db.kline_kill.find_by_ip(ip, count)
+                klines_ += await db.kline_reject.find_by_ip(ip, count)
             elif (cidr := try_parse_cidr(query)) is not None:
-                klines_ += await db.kline_kill.find_by_cidr(cidr)
-                klines_ += await db.kline_reject.find_by_cidr(cidr)
+                klines_ += await db.kline_kill.find_by_cidr(cidr, count)
+                klines_ += await db.kline_reject.find_by_cidr(cidr, count)
             elif looks_like_glob(query):
-                klines_ += await db.kline_kill.find_by_ip_glob(query)
-                klines_ += await db.kline_reject.find_by_ip_glob(query)
+                klines_ += await db.kline_kill.find_by_ip_glob(query, count)
+                klines_ += await db.kline_reject.find_by_ip_glob(query, count)
             else:
                 return [f"'{query}' does not look like an IP address"]
         else:
@@ -320,7 +320,7 @@ class Server(BaseServer):
         # sort by timestamp descending
         klines = sorted(set(klines_), key=lambda k: k[1], reverse=True)
         # apply output limit
-        klines = klines[:limit]
+        klines = klines[:count]
 
         outs: List[str] = []
         for kline_id, _ in klines:

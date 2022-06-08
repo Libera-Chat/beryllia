@@ -104,7 +104,7 @@ class KLineTable(Table):
             await conn.execute(query, kline_id)
 
     async def find_by_ts(
-        self, ts: datetime, fudge: int = 1
+        self, ts: datetime, count: int, fudge: int = 1
     ) -> Collection[Tuple[int, datetime]]:
 
         query = """
@@ -116,9 +116,10 @@ class KLineTable(Table):
                     )
                 )
             ) / 60 <= $2
+            LIMIT $3
         """
         async with self.pool.acquire() as conn:
-            return await conn.fetch(query, ts, fudge)
+            return await conn.fetch(query, ts, fudge, count)
 
     async def find_last_by_oper(self, oper: str, count: int) -> Sequence[int]:
         query = """
@@ -132,13 +133,14 @@ class KLineTable(Table):
         return [r[0] for r in rows]
 
     async def _find_klines(
-        self, where: str, *args: Any
+        self, where: str, args: Sequence[Any], count: int
     ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
             SELECT id, ts
             FROM kline
             {where}
+            LIMIT {count}
         """
 
         async with self.pool.acquire() as conn:
@@ -146,8 +148,10 @@ class KLineTable(Table):
 
         return rows
 
-    async def find_by_mask_glob(self, mask: str) -> Collection[Tuple[int, datetime]]:
+    async def find_by_mask_glob(
+        self, mask: str, count: int
+    ) -> Collection[Tuple[int, datetime]]:
 
         pattern = glob_to_sql(lex_glob_pattern(mask))
         param = str(self.to_search(pattern, SearchType.MASK))
-        return await self._find_klines("WHERE search_mask LIKE $1", param)
+        return await self._find_klines("WHERE search_mask LIKE $1", [param], count)

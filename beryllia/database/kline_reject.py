@@ -1,6 +1,6 @@
 from datetime import datetime
 from ipaddress import IPv4Address, IPv6Address
-from typing import Any, Collection, Optional, Tuple, Union
+from typing import Any, Collection, Optional, Sequence, Tuple, Union
 
 from .kline_kill import DBKLineKill, KLineKillTable
 from ..normalise import SearchType
@@ -75,7 +75,7 @@ class KLineRejectTable(KLineKillTable):
             return await conn.fetchval(query, *args)
 
     async def _find_klines(
-        self, where: str, *args: Any
+        self, where: str, args: Sequence[Any], count: int
     ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
@@ -84,6 +84,7 @@ class KLineRejectTable(KLineKillTable):
             INNER JOIN kline
             ON kline_reject.kline_id = kline.id
             {where}
+            LIMIT {count}
         """
 
         async with self.pool.acquire() as conn:
