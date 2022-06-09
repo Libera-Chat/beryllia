@@ -425,8 +425,11 @@ class Server(BaseServer):
 
         return outs or ["no results"]
 
-    async def cmd_statsp(self, caller: Caller, args: str):
-        match = RE_DATE.search(args.strip() or "1970-01-01")
+    async def cmd_statsp(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
+        if not args:
+            return ["please provide a date"]
+
+        match = RE_DATE.search(args[0] or "1970-01-01")
         if match is None:
             return ["that's not a date"]
 
