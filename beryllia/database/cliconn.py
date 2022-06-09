@@ -4,13 +4,14 @@ from ipaddress import IPv4Address, IPv6Address
 from ipaddress import IPv4Network, IPv6Network
 from typing import Any, Optional, Sequence, Tuple, Union
 
-from .common import NickUserHost, Table
+from .common import Table
+from ..common import User
 from ..normalise import SearchType
 from ..util import glob_to_sql, lex_glob_pattern
 
 
 @dataclass
-class Cliconn(NickUserHost):
+class Cliconn(User):
     nickname: str
     username: str
     realname: str

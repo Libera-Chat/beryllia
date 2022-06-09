@@ -17,6 +17,7 @@ from typing import (
 from irctokens import Line
 
 from .common import IRCParser
+from ..common import User
 from ..database import Database
 from ..database.cliconn import Cliconn
 
@@ -38,6 +39,7 @@ class SnoteParser(IRCParser):
     def __init__(
         self,
         database: Database,
+        users: Dict[str, User],
         kline_reject_max: int,
         kline_new: Callable[[int], Awaitable[None]],
     ):
@@ -47,7 +49,8 @@ class SnoteParser(IRCParser):
         self._kline_reject_max = kline_reject_max
         self._kline_new = kline_new
 
-        self._cliconns: Dict[str, Tuple[int, Cliconn]] = {}
+        self._cliconns: Dict[str, int] = {}
+        self._users = users
         self._kline_waiting_exit: Dict[str, str] = {}
 
     async def handle(self, line: Line) -> None:
@@ -104,7 +107,8 @@ class SnoteParser(IRCParser):
             datetime.utcnow(),
         )
         cliconn_id = await self._database.cliconn.add(cliconn)
-        self._cliconns[nickname] = (cliconn_id, cliconn)
+        self._cliconns[nickname] = cliconn_id
+        self._users[nickname] = cliconn
 
     @_handler(
         r"""
@@ -134,7 +138,10 @@ class SnoteParser(IRCParser):
 
         cliconn_id: Optional[int] = None
         if nickname in self._cliconns:
-            cliconn_id, _ = self._cliconns.pop(nickname)
+            cliconn_id = self._cliconns.pop(nickname)
+
+        if nickname in self._users:
+            del self._users[nickname]
 
         await self._database.cliexit.add(
             cliconn_id, nickname, username, hostname, ip, reason
@@ -210,12 +217,16 @@ class SnoteParser(IRCParser):
     )
     async def _handle_nickchg(self, server: str, match: Match) -> None:
         old_nick = match.group("old_nick")
+        new_nick = match.group("new_nick")
+
+        user = self._users.pop(old_nick)
+        self._users[new_nick] = user
+
         if not old_nick in self._cliconns:
             return
 
-        new_nick = match.group("new_nick")
-        cliconn_id, cliconn = self._cliconns.pop(old_nick)
-        self._cliconns[new_nick] = (cliconn_id, cliconn)
+        cliconn_id = self._cliconns.pop(old_nick)
+        self._cliconns[new_nick] = cliconn_id
         await self._database.nick_change.add(cliconn_id, new_nick)
 
     @_handler(
