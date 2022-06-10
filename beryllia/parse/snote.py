@@ -290,7 +290,7 @@ class SnoteParser(IRCParser):
         r"""
         ^
         # "*** Notice --"
-        \*{3} Notice --
+        \*{3}\ Notice\ --
         # " jess!meow@libera/staff/cat/jess{jess}"
         \ (?P<source>[^{]+)\{(?P<oper>[^}]+)\}
         # " has removed the temporary K-Line for:"
