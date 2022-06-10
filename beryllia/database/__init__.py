@@ -13,6 +13,8 @@ from .preference import PreferenceTable
 
 from .registration import RegistrationTable
 from .email_resolve import EmailResolveTable
+from .freeze import FreezeTable
+from .freeze_tag import FreezeTagTable
 
 from ..normalise import SearchNormaliser
 
@@ -32,6 +34,8 @@ class Database(object):
         self.preference = PreferenceTable(pool, normaliser)
         self.registration = RegistrationTable(pool, normaliser)
         self.email_resolve = EmailResolveTable(pool, normaliser)
+        self.freeze = FreezeTable(pool, normaliser)
+        self.freeze_tag = FreezeTagTable(pool, normaliser)
 
     @staticmethod
     async def connect(

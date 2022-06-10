@@ -16,14 +16,12 @@ from typing import (
 
 from irctokens import Line
 
-from .common import IRCParser
+from .common import IRCParser, RE_EMBEDDEDTAG
 from ..database import Database
 from ..database.cliconn import Cliconn
 
 _TYPE_HANDLER = Callable[[Any, str, Match], Awaitable[None]]
 _HANDLERS: List[Tuple[Pattern, _TYPE_HANDLER]] = []
-
-RE_KLINETAG = re_compile(r"%(\S+)")
 
 
 def _handler(pattern: str) -> Callable[[_TYPE_HANDLER], _TYPE_HANDLER]:
@@ -269,7 +267,7 @@ class SnoteParser(IRCParser):
         # TODO: just pass a KLine object to _kline_new
         await self._kline_new(kline_id)
 
-        tags = list(RE_KLINETAG.finditer(reason))
+        tags = list(RE_EMBEDDEDTAG.finditer(reason))
         for tag_match in tags:
             tag = tag_match.group(1)
             if await self._database.kline_tag.exists(kline_id, tag):
