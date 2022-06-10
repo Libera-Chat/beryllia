@@ -1,17 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from ipaddress import ip_address, IPv4Address, IPv6Address
 from json import loads as json_loads
 from re import compile as re_compile
 from shlex import split as shlex_split
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
 from ircrobots.ircv3 import Capability
-from ircrobots.matching import ANY, Response, SELF
 from ircstates.numerics import RPL_ENDOFMOTD, ERR_NOMOTD, RPL_WELCOME, RPL_YOUREOPER
 
 from .common import NickUserHost, User
@@ -20,9 +18,19 @@ from .database import Database
 from .database.kline import DBKLine
 from .normalise import RFC1459SearchNormaliser
 
-from .util import oper_up, pretty_delta, get_statsp, get_klines
-from .util import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util import looks_like_glob, colourise
+from .util import (
+    colourise,
+    get_klines,
+    get_links,
+    get_masktrace,
+    get_statsp,
+    looks_like_glob,
+    oper_up,
+    pretty_delta,
+    try_parse_cidr,
+    try_parse_ip,
+    try_parse_ts,
+)
 
 from .parse.nickserv import NickServParser
 from .parse.snote import SnoteParser
@@ -42,10 +50,6 @@ class Caller:
 
 PREFERENCES: Dict[str, type] = {"statsp": bool, "knag": bool}
 
-# not in ircstates yet
-RPL_TRACEEND = "262"
-RPL_ETRACE = "709"
-
 
 class Server(BaseServer):
     database: Database
@@ -61,6 +65,7 @@ class Server(BaseServer):
         self._config = config
 
         self._database_init: bool = False
+        self._links: Dict[str, Set[str]] = {}
         self._users: Dict[str, User] = {}
 
     def set_throttle(self, rate: int, time: float):
@@ -90,37 +95,6 @@ class Server(BaseServer):
             kline_id = klines_db[kline_gone]
             await self.database.kline_remove.add(kline_id, None, None)
         # TODO: add new k-lines to database?
-
-    async def _get_masktrace(self) -> Dict[str, User]:
-        users: Dict[str, User] = {}
-        await self.send(build("MASKTRACE", ["!*@*"]))
-        while True:
-            line = await self.wait_for(
-                {
-                    Response(RPL_ETRACE, [SELF, ANY, ANY, ANY, ANY, ANY, ANY, ANY]),
-                    Response(RPL_TRACEEND, [SELF]),
-                }
-            )
-
-            if line.command == RPL_TRACEEND:
-                break
-
-            nickname = line.params[3]
-            ip: Optional[Union[IPv4Address, IPv6Address]] = None
-            if not (ip_str := line.params[6]) == "0":
-                ip = ip_address(ip_str)
-
-            user = User(
-                nickname,
-                line.params[4],
-                line.params[7],
-                line.params[5],
-                None,
-                ip,
-                line.params[2],
-            )
-            users[nickname] = user
-        return users
 
     async def _log(self, text: str):
         if self._config.log is not None:
@@ -169,11 +143,21 @@ class Server(BaseServer):
 
             self._nickserv = NickServParser(database)
             self._snote = SnoteParser(
-                database, self._users, self._config.rejects, self._kline_new
+                self,
+                database,
+                self._users,
+                self._links,
+                self._config.rejects,
+                self._kline_new,
             )
 
         elif line.command == RPL_YOUREOPER:
-            self._users = await self._get_masktrace()
+            self._links.clear()
+            self._links.update(await get_links(self))
+
+            self._users.clear()
+            self._users.update(await get_masktrace(self))
+
             # B connections rejected due to k-line
             # F far cliconn
             # c near cliconn

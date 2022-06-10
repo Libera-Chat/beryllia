@@ -4,7 +4,7 @@ from enum import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
 
-from typing import Deque, List, Optional, Sequence, Set, Tuple, Union
+from typing import Dict, Deque, List, Optional, Sequence, Set, Tuple, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -16,9 +16,15 @@ from ircstates.numerics import RPL_ENDOFRSACHALLENGE2, RPL_RSACHALLENGE2
 from aiodns import DNSResolver
 from aiodns.error import DNSError
 
+from .common import User
+
 # not in ircstates.numerics
 RPL_STATS = "249"
 RPL_ENDOFSTATS = "219"
+RPL_LINKS = "364"
+RPL_ENDOFLINKS = "365"
+RPL_TRACEEND = "262"
+RPL_ETRACE = "709"
 
 RE_OPERNAME = re.compile(r"^is opered as (\S+)(?:,|$)")
 
@@ -148,6 +154,59 @@ async def get_klines(server: Server) -> Optional[Set[str]]:
         elif (wait := wait - 1) == 0:
             break
     return masks
+
+
+async def get_masktrace(server: Server) -> Dict[str, User]:
+    users: Dict[str, User] = {}
+
+    await server.send(build("MASKTRACE", ["!*@*"]))
+    while True:
+        line = await server.wait_for(
+            {
+                Response(RPL_ETRACE, [SELF, ANY, ANY, ANY, ANY, ANY, ANY, ANY]),
+                Response(RPL_TRACEEND, [SELF]),
+            }
+        )
+        if line.command == RPL_TRACEEND:
+            break
+
+        nickname = line.params[3]
+        ip: Optional[Union[IPv4Address, IPv6Address]] = None
+        if not (ip_str := line.params[6]) == "0":
+            ip = ip_address(ip_str)
+
+        user = User(
+            nickname,
+            line.params[4],
+            line.params[7],
+            line.params[5],
+            None,
+            ip,
+            line.params[2],
+        )
+        users[nickname] = user
+    return users
+
+
+async def get_links(server: Server) -> Dict[str, Set[str]]:
+    links: Dict[str, Set[str]] = {}
+
+    await server.send(build("LINKS"))
+    while True:
+        line = await server.wait_for(
+            {
+                Response(RPL_LINKS, [SELF, ANY, ANY]),
+                Response(RPL_ENDOFLINKS, [SELF]),
+            }
+        )
+        if line.command == RPL_ENDOFLINKS:
+            break
+
+        server_far, server_near = line.params[1:3]
+        links[server_far] = set()
+        if not server_far == server_near:
+            links[server_near].add(server_far)
+    return links
 
 
 def try_parse_ip(ip: str) -> Optional[Union[IPv4Address, IPv6Address]]:
