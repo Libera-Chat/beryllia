@@ -139,7 +139,7 @@ class NickServParser(IRCParser):
         account = match.group("account")
         reason = match.group("reason")
 
-        freeze_id = await self._database.freeze.add(account, soper, reason)
+        freeze_id = await self._database.account_freeze.add(account, soper, reason)
 
         tags = list(RE_EMBEDDEDTAG.finditer(reason))
         for tag_match in tags:

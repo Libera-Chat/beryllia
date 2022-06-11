@@ -156,8 +156,7 @@ CREATE TABLE email_resolve (
     record           VARCHAR(256)  NOT NULL
 );
 
--- double quotes for "freeze" because it's a reserved word
-CREATE TABLE "freeze" (
+CREATE TABLE account_freeze (
     id       SERIAL        PRIMARY KEY,
     account  VARCHAR(16)   NOT NULL,
     soper    VARCHAR(16)   NOT NULL,
@@ -166,7 +165,7 @@ CREATE TABLE "freeze" (
 );
 
 CREATE TABLE freeze_tag (
-    freeze_id   INTEGER      NOT NULL  REFERENCES "freeze" (id)  ON DELETE CASCADE,
+    freeze_id   INTEGER      NOT NULL  REFERENCES account_freeze (id)  ON DELETE CASCADE,
     tag         VARCHAR(32)  NOT NULL,
     search_tag  VARCHAR(32)  NOT NULL,
     soper       VARCHAR(16)  NOT NULL,

@@ -1,11 +1,11 @@
 from .common import Table
 
 
-class FreezeTable(Table):
+class AccountFreezeTable(Table):
     async def add(self, account: str, soper: str, reason: str) -> int:
 
         query = """
-            INSERT INTO "freeze" (account, soper, reason, ts)
+            INSERT INTO account_freeze (account, soper, reason, ts)
             VALUES ($1, $2, $3, NOW()::TIMESTAMP)
             RETURNING id
         """
