@@ -70,6 +70,7 @@ class KLineKillTable(Table):
             INNER JOIN kline
             ON kline_kill.kline_id = kline.id
             {where}
+            ORDER BY kline.ts DESC
             LIMIT {count}
         """
 
