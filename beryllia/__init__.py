@@ -258,7 +258,7 @@ class Server(BaseServer):
             caller.oper, int(args[0])
         )
         outs: List[str] = []
-        for kline_id in kline_ids:
+        for kline_id, _ in kline_ids:
             outs += await self._ktag(kline_id, args[1], caller)
         if not outs:
             outs = ["found no recent k-lines from you"]

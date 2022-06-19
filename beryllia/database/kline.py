@@ -103,35 +103,6 @@ class KLineTable(Table):
         async with self.pool.acquire() as conn:
             await conn.execute(query, kline_id)
 
-    async def find_by_ts(
-        self, ts: datetime, count: int, fudge: int = 1
-    ) -> Collection[Tuple[int, datetime]]:
-
-        query = """
-            SELECT id, ts FROM kline
-            WHERE ABS(
-                EXTRACT(
-                    EPOCH FROM (
-                        DATE_TRUNC('minute', ts) - $1
-                    )
-                )
-            ) / 60 <= $2
-            LIMIT $3
-        """
-        async with self.pool.acquire() as conn:
-            return await conn.fetch(query, ts, fudge, count)
-
-    async def find_last_by_oper(self, oper: str, count: int) -> Sequence[int]:
-        query = """
-            SELECT id FROM kline
-            WHERE oper = $1
-            ORDER BY ts DESC
-            LIMIT $2
-        """
-        async with self.pool.acquire() as conn:
-            rows = await conn.fetch(query, oper, count)
-        return [r[0] for r in rows]
-
     async def _find_klines(
         self, where: str, args: Sequence[Any], count: int
     ) -> Collection[Tuple[int, datetime]]:
@@ -140,6 +111,7 @@ class KLineTable(Table):
             SELECT id, ts
             FROM kline
             {where}
+            ORDER BY ts DESC
             LIMIT {count}
         """
 
@@ -147,6 +119,26 @@ class KLineTable(Table):
             rows = await conn.fetch(query, *args)
 
         return rows
+
+    async def find_last_by_oper(
+        self, oper: str, count: int
+    ) -> Collection[Tuple[int, datetime]]:
+        return await self._find_klines("WHERE oper = $1", [oper], count)
+
+    async def find_by_ts(
+        self, ts: datetime, count: int, fudge: int = 1
+    ) -> Collection[Tuple[int, datetime]]:
+
+        where = """
+            WHERE ABS(
+                EXTRACT(
+                    EPOCH FROM (
+                        DATE_TRUNC('minute', ts) - $1
+                    )
+                )
+            ) / 60 <= $2
+        """
+        return await self._find_klines(where, [ts, fudge], count)
 
     async def find_by_mask_glob(
         self, mask: str, count: int
