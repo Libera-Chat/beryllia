@@ -4,7 +4,8 @@ from ipaddress import IPv4Address, IPv6Address
 from ipaddress import IPv4Network, IPv6Network
 from typing import Any, Collection, Optional, Sequence, Tuple, Union
 
-from .common import NickUserHost, Table
+from .common import Table
+from ..common import NickUserHost
 from ..normalise import SearchType
 from ..util import lex_glob_pattern, glob_to_sql
 

@@ -6,12 +6,6 @@ from ..normalise import SearchNormaliser, SearchType
 from ..util import CompositeString, CompositeStringText
 
 
-class NickUserHost:
-    # nick user host
-    def nuh(self) -> str:
-        raise NotImplementedError()
-
-
 @dataclass
 class Table(object):
     pool: Pool

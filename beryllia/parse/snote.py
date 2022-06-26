@@ -10,15 +10,19 @@ from typing import (
     Match,
     Optional,
     Pattern,
+    Set,
     Tuple,
     Union,
 )
 
 from irctokens import Line
+from ircrobots import Server
 
 from .common import IRCParser
+from ..common import User
 from ..database import Database
 from ..database.cliconn import Cliconn
+from ..util import get_links, get_masktrace
 
 _TYPE_HANDLER = Callable[[Any, str, Match], Awaitable[None]]
 _HANDLERS: List[Tuple[Pattern, _TYPE_HANDLER]] = []
@@ -37,17 +41,23 @@ def _handler(pattern: str) -> Callable[[_TYPE_HANDLER], _TYPE_HANDLER]:
 class SnoteParser(IRCParser):
     def __init__(
         self,
+        server: Server,
         database: Database,
+        users: Dict[str, User],
+        links: Dict[str, Set[str]],
         kline_reject_max: int,
         kline_new: Callable[[int], Awaitable[None]],
     ):
         super().__init__()
 
+        self._server = server
         self._database = database
+        self._users = users
+        self._links = links
         self._kline_reject_max = kline_reject_max
         self._kline_new = kline_new
 
-        self._cliconns: Dict[str, Tuple[int, Cliconn]] = {}
+        self._cliconns: Dict[str, int] = {}
         self._kline_waiting_exit: Dict[str, str] = {}
 
     async def handle(self, line: Line) -> None:
@@ -104,7 +114,8 @@ class SnoteParser(IRCParser):
             datetime.utcnow(),
         )
         cliconn_id = await self._database.cliconn.add(cliconn)
-        self._cliconns[nickname] = (cliconn_id, cliconn)
+        self._cliconns[nickname] = cliconn_id
+        self._users[nickname] = cliconn
 
     @_handler(
         r"""
@@ -134,7 +145,10 @@ class SnoteParser(IRCParser):
 
         cliconn_id: Optional[int] = None
         if nickname in self._cliconns:
-            cliconn_id, _ = self._cliconns.pop(nickname)
+            cliconn_id = self._cliconns.pop(nickname)
+
+        if nickname in self._users:
+            del self._users[nickname]
 
         await self._database.cliexit.add(
             cliconn_id, nickname, username, hostname, ip, reason
@@ -210,12 +224,16 @@ class SnoteParser(IRCParser):
     )
     async def _handle_nickchg(self, server: str, match: Match) -> None:
         old_nick = match.group("old_nick")
+        new_nick = match.group("new_nick")
+
+        user = self._users.pop(old_nick)
+        self._users[new_nick] = user
+
         if not old_nick in self._cliconns:
             return
 
-        new_nick = match.group("new_nick")
-        cliconn_id, cliconn = self._cliconns.pop(old_nick)
-        self._cliconns[new_nick] = (cliconn_id, cliconn)
+        cliconn_id = self._cliconns.pop(old_nick)
+        self._cliconns[new_nick] = cliconn_id
         await self._database.nick_change.add(cliconn_id, new_nick)
 
     @_handler(
@@ -310,3 +328,58 @@ class SnoteParser(IRCParser):
             return
 
         await self._database.kline_remove.add(id, source, oper)
+
+    @_handler(
+        r"""
+        ^
+        # "*** Notice --"
+        \*{3}\ Notice\ --
+        # " Netsplit silver.libera.chat <-> tungsten.libera.chat"
+        \ Netsplit\ (?P<near>\S+)\ <->\ (?P<far>\S+)
+        # " (1S 2000C) (by jess: jess)"
+        \ .*
+        $
+    """
+    )
+    async def _handle_netsplit(self, server: str, match: Match) -> None:
+        server_near = match.group("near")
+        if not server_near in self._links:
+            # this should only happen when something splits during burst
+            return
+
+        server_far = match.group("far")
+
+        self._links[server_near].remove(server_far)
+
+        servers_gone_list = [server_far]
+        server_i = 0
+        while server_i < len(servers_gone_list):
+            server_gone = servers_gone_list[server_i]
+            servers_gone_list.extend(self._links.pop(server_gone))
+            server_i += 1
+
+        servers_gone = set(servers_gone_list)
+        for nickname, user in list(self._users.items()):
+            if not user.server in servers_gone:
+                continue
+
+            del self._users[nickname]
+
+    @_handler(
+        r"""
+        ^
+        # "*** Notice --"
+        \*{3}\ Notice\ --
+        # " Netjoin"
+        \ Netjoin
+        # " silver.libera.chat <-> tungsten.libera.chat (1S 2000C)
+        \ .*
+        $
+    """
+    )
+    async def _handle_netjoin(self, server: str, match: Match) -> None:
+        self._links.clear()
+        self._links.update(await get_links(self._server))
+
+        self._users.clear()
+        self._users.update(await get_masktrace(self._server))

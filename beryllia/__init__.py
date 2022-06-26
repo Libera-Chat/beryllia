@@ -3,24 +3,34 @@ from datetime import datetime, timedelta
 from json import loads as json_loads
 from re import compile as re_compile
 from shlex import split as shlex_split
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
 from ircrobots import Bot as BaseBot
 from ircrobots import Server as BaseServer
 
-from ircstates.numerics import RPL_ENDOFMOTD, ERR_NOMOTD, RPL_WELCOME, RPL_YOUREOPER
 from ircrobots.ircv3 import Capability
+from ircstates.numerics import RPL_ENDOFMOTD, ERR_NOMOTD, RPL_WELCOME, RPL_YOUREOPER
 
+from .common import NickUserHost, User
 from .config import Config
 from .database import Database
-from .database.common import NickUserHost
 from .database.kline import DBKLine
 from .normalise import RFC1459SearchNormaliser
 
-from .util import oper_up, pretty_delta, get_statsp, get_klines
-from .util import try_parse_cidr, try_parse_ip, try_parse_ts
-from .util import looks_like_glob, colourise
+from .util import (
+    colourise,
+    get_klines,
+    get_links,
+    get_masktrace,
+    get_statsp,
+    looks_like_glob,
+    oper_up,
+    pretty_delta,
+    try_parse_cidr,
+    try_parse_ip,
+    try_parse_ts,
+)
 
 from .parse.nickserv import NickServParser
 from .parse.snote import SnoteParser
@@ -55,6 +65,8 @@ class Server(BaseServer):
         self._config = config
 
         self._database_init: bool = False
+        self._links: Dict[str, Set[str]] = {}
+        self._users: Dict[str, User] = {}
 
     def set_throttle(self, rate: int, time: float):
         # turn off throttling
@@ -130,9 +142,22 @@ class Server(BaseServer):
             self._database_init = True
 
             self._nickserv = NickServParser(database)
-            self._snote = SnoteParser(database, self._config.rejects, self._kline_new)
+            self._snote = SnoteParser(
+                self,
+                database,
+                self._users,
+                self._links,
+                self._config.rejects,
+                self._kline_new,
+            )
 
         elif line.command == RPL_YOUREOPER:
+            self._links.clear()
+            self._links.update(await get_links(self))
+
+            self._users.clear()
+            self._users.update(await get_masktrace(self))
+
             # B connections rejected due to k-line
             # F far cliconn
             # c near cliconn
