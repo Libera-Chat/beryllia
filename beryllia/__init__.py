@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from json import loads as json_loads
 from re import compile as re_compile
 from shlex import split as shlex_split
+from tabulate import tabulate
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from irctokens import build, hostmask as hostmask_parse, Hostmask, Line
@@ -13,7 +14,7 @@ from ircstates.numerics import RPL_ENDOFMOTD, ERR_NOMOTD, RPL_WELCOME, RPL_YOURE
 from ircrobots.ircv3 import Capability
 
 from .config import Config
-from .database import Database
+from .database import Database, DatabaseError
 from .database.common import NickUserHost
 from .database.kline import DBKLine
 from .normalise import RFC1459SearchNormaliser
@@ -39,6 +40,7 @@ class Caller:
 
 
 PREFERENCES: Dict[str, type] = {"statsp": bool, "knag": bool}
+EVAL_MAX = 10
 
 
 class Server(BaseServer):
@@ -464,6 +466,25 @@ class Server(BaseServer):
 
         await db.preference.set(caller.oper, key, value)
         return [f"set {key} to {value}"]
+
+    async def cmd_eval(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
+        try:
+            # list() because readonly_eval returns an immutable sequence
+            outs_eval = list(await self.database.readonly_eval(args[0]))
+        except DatabaseError as e:
+            return [f"error: {str(e)}"]
+
+        if not outs_eval:
+            return ["no results"]
+
+        headers = outs_eval.pop(0)
+        outs = tabulate(outs_eval[:EVAL_MAX], headers=headers).split("\n")
+
+        if len(outs_eval) > EVAL_MAX:
+            overflow = len(outs_eval) - EVAL_MAX
+            outs.append(f"(and {overflow} more)")
+
+        return outs
 
     def line_preread(self, line: Line):
         print(f"< {line.format()}")
