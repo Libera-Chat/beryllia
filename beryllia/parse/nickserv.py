@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from irctokens import Line
 
-from .common import IRCParser
+from .common import IRCParser, RE_EMBEDDEDTAG
 from ..database import Database
 from ..util import recursive_mx_resolve
 
@@ -124,3 +124,27 @@ class NickServParser(IRCParser):
 
         registration_id = self._registration_ids[account]
         await self._database.registration.verify(registration_id)
+
+    @_handler("FREEZE:ON")
+    async def _handle_FREEZE_ON(
+        self, soper: str, soper_account: Optional[str], args: str
+    ) -> None:
+
+        match = re_search(r"(?P<account>\S+) \(reason: (?P<reason>.*)\)$", args)
+        if match is None:
+            return
+
+        soper = soper_account or soper
+
+        account = match.group("account")
+        reason = match.group("reason")
+
+        freeze_id = await self._database.account_freeze.add(account, soper, reason)
+
+        tags = list(RE_EMBEDDEDTAG.finditer(reason))
+        for tag_match in tags:
+            tag = tag_match.group(1)
+            if await self._database.freeze_tag.exists(freeze_id, tag):
+                continue
+
+            await self._database.freeze_tag.add(freeze_id, tag, soper)

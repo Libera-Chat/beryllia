@@ -156,6 +156,23 @@ CREATE TABLE email_resolve (
     record           VARCHAR(256)  NOT NULL
 );
 
+CREATE TABLE account_freeze (
+    id       SERIAL        PRIMARY KEY,
+    account  VARCHAR(16)   NOT NULL,
+    soper    VARCHAR(16)   NOT NULL,
+    reason   VARCHAR(256)  NOT NULL,
+    ts       TIMESTAMP     NOT NULL
+);
+
+CREATE TABLE freeze_tag (
+    freeze_id   INTEGER      NOT NULL  REFERENCES account_freeze (id)  ON DELETE CASCADE,
+    tag         VARCHAR(32)  NOT NULL,
+    search_tag  VARCHAR(32)  NOT NULL,
+    soper       VARCHAR(16)  NOT NULL,
+    ts          TIMESTAMP    NOT NULL,
+    PRIMARY KEY (freeze_id, search_tag)
+);
+
 CREATE TABLE statsp (
     oper VARCHAR(16) NOT NULL,
     mask VARCHAR(92) NOT NULL,
