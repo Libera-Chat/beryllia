@@ -124,6 +124,8 @@ CREATE TABLE cliexit (
     reason       VARCHAR(260) NOT NULL,
     ts           TIMESTAMP    NOT NULL
 );
+-- for retention period bulk deletion
+CREATE INDEX cliexit_ts ON cliexit(ts);
 
 CREATE TABLE nick_change (
     id           SERIAL       PRIMARY KEY,
