@@ -1,5 +1,5 @@
 import asyncpg
-from typing import Optional
+from typing import Any, Optional, Sequence, Tuple
 
 from .cliconn import CliconnTable, CliexitTable
 from .nick_change import NickChangeTable
@@ -19,8 +19,13 @@ from .freeze_tag import FreezeTagTable
 from ..normalise import SearchNormaliser
 
 
+class DatabaseError(Exception):
+    pass
+
+
 class Database(object):
     def __init__(self, pool: asyncpg.Pool, normaliser: SearchNormaliser):
+        self._pool = pool
 
         self.kline = KLineTable(pool, normaliser)
         self.kline_reject = KLineRejectTable(pool, normaliser)
@@ -50,3 +55,21 @@ class Database(object):
             user=username, password=password, host=hostname, database=db_name
         )
         return Database(pool, normaliser)
+
+    async def readonly_eval(self, query: str) -> Sequence[Tuple[Any, ...]]:
+        async with self._pool.acquire() as conn, conn.transaction(readonly=True):
+            try:
+                rows = await conn.fetch(query)
+            except asyncpg.PostgresError as e:
+                raise DatabaseError(str(e))
+
+        if not rows:
+            return []
+
+        headers = tuple(key for key in rows[0].keys())
+        outs = [headers]
+
+        for row in rows:
+            outs.append(tuple(value for value in row.values()))
+
+        return outs
