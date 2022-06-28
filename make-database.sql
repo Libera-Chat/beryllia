@@ -113,7 +113,7 @@ CREATE INDEX cliconn_ip          ON cliconn(ip);
 
 CREATE TABLE cliexit (
     id           SERIAL       PRIMARY KEY,
-    cliconn_id   INTEGER      REFERENCES cliconn (id),
+    cliconn_id   INTEGER      REFERENCES cliconn (id)  ON DELETE SET NULL,
     nickname     VARCHAR(16)  NOT NULL,
     search_nick  VARCHAR(16)  NOT NULL,
     username     VARCHAR(10)  NOT NULL,
