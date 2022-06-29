@@ -4,7 +4,7 @@ from enum import Enum
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from ipaddress import ip_network, IPv4Network, IPv6Network
 
-from typing import Deque, List, Optional, Sequence, Set, Tuple, Union
+from typing import Deque, List, Optional, Sequence, Set, Tuple, Type, Union
 
 from ircrobots import Server
 from irctokens import build
@@ -27,29 +27,74 @@ SECONDS_HOURS = SECONDS_MINUTES * 60
 SECONDS_DAYS = SECONDS_HOURS * 24
 SECONDS_WEEKS = SECONDS_DAYS * 7
 
-TIME_UNITS_SHORT = list(
-    zip("wdhms", [SECONDS_WEEKS, SECONDS_DAYS, SECONDS_HOURS, SECONDS_MINUTES, 1])
-)
-TIME_UNITS_LONG = list(
-    zip(
-        ["weeks", "days", "hours", "minutes", "seconds"],
-        [SECONDS_WEEKS, SECONDS_DAYS, SECONDS_HOURS, SECONDS_MINUTES, 1],
-    )
-)
+
+class TimeUnit:
+    long: str
+    short: str
+    seconds: int
+
+
+class TimeUnitSecond(TimeUnit):
+    long = "seconds"
+    short = "s"
+    seconds = 1
+
+
+class TimeUnitMinute(TimeUnit):
+    long = "minutes"
+    short = "m"
+    seconds = TimeUnitSecond.seconds * 60
+
+
+class TimeUnitHour(TimeUnit):
+    long = "hours"
+    short = "h"
+    seconds = TimeUnitMinute.seconds * 60
+
+
+class TimeUnitDay(TimeUnit):
+    long = "days"
+    short = "d"
+    seconds = TimeUnitHour.seconds * 24
+
+
+class TimeUnitWeek(TimeUnit):
+    long = "weeks"
+    short = "w"
+    seconds = TimeUnitDay.seconds * 7
+
+
+TIME_UNITS: Sequence[Type[TimeUnit]] = [
+    TimeUnitWeek,
+    TimeUnitDay,
+    TimeUnitHour,
+    TimeUnitMinute,
+    TimeUnitSecond,
+]
 
 
 def pretty_delta(delta: timedelta, max_units: int = 2, long: bool = False) -> str:
-
     denominator = int(delta.total_seconds())
+
+    time_units: List[Tuple[Type[TimeUnit], int]] = []
+    for time_unit in TIME_UNITS:
+        numerator, denominator = divmod(denominator, time_unit.seconds)
+        if numerator == 0:
+            continue
+
+        time_units.append((time_unit, numerator))
+        if len(time_units) == max_units:
+            break
+
+    if not time_units:
+        time_units.append((TimeUnitSecond, 0))
+
     outs: List[str] = []
-    time_units = TIME_UNITS_LONG if long else TIME_UNITS_SHORT
-    for unit, div in time_units:
-        numerator, denominator = divmod(denominator, div)
-        if numerator > 0:
-            sep = " " if long else ""
-            outs.append(f"{numerator}{sep}{unit}")
-            if len(outs) == max_units:
-                break
+    for time_unit, count in time_units:
+        if long:
+            outs.append(f"{count} {time_unit.long}")
+        else:
+            outs.append(f"{count}{time_unit.short}")
 
     return (" " if long else "").join(outs)
 
