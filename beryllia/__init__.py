@@ -192,14 +192,23 @@ class Server(BaseServer):
         tags: Optional[Dict[str, str]],
     ):
 
-        if tags and (oper := tags.get("solanum.chat/oper", "")):
-            caller = Caller(who.nickname, str(who), oper)
-            attrib = f"cmd_{command}"
-            if hasattr(self, attrib):
-                args = shlex_split(sargs)
-                outs = await getattr(self, attrib)(caller, args)
-                for out in outs:
-                    await self.send(build("NOTICE", [target, out]))
+        if not tags or not (oper := tags.get("solanum.chat/oper", "")):
+            return
+
+        caller = Caller(who.nickname, str(who), oper)
+        attrib = f"cmd_{command}"
+        if not hasattr(self, attrib):
+            return
+
+        try:
+            args = shlex_split(sargs)
+        except ValueError as e:
+            await self.send(build("NOTICE", [target, f"shlex failure: {str(e)}"]))
+            return
+
+        outs = await getattr(self, attrib)(caller, args)
+        for out in outs:
+            await self.send(build("NOTICE", [target, out]))
 
     async def cmd_help(self, caller: Caller, args: str):
         me = self.nickname
