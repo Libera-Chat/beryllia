@@ -79,11 +79,13 @@ class KLineRejectTable(KLineKillTable):
     ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
-            SELECT DISTINCT(kline.id), kline.ts
-            FROM kline_reject
+            SELECT kline.id, MIN(kline.ts) AS kline_ts
+                FROM kline_reject
             INNER JOIN kline
-            ON kline_reject.kline_id = kline.id
+                ON kline_reject.kline_id = kline.id
             {where}
+            GROUP BY kline.id
+            ORDER BY kline_ts DESC
             LIMIT {count}
         """
 
