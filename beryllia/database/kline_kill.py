@@ -65,12 +65,13 @@ class KLineKillTable(Table):
     ) -> Collection[Tuple[int, datetime]]:
 
         query = f"""
-            SELECT DISTINCT(kline.id), kline.ts
-            FROM kline_kill
+            SELECT kline.id, MIN(kline.ts) AS kline_ts
+                FROM kline_kill
             INNER JOIN kline
-            ON kline_kill.kline_id = kline.id
+                ON kline_kill.kline_id = kline.id
             {where}
-            ORDER BY kline.ts DESC
+            GROUP BY kline.id
+            ORDER BY kline_ts DESC
             LIMIT {count}
         """
 

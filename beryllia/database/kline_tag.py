@@ -52,12 +52,13 @@ class KLineTagTable(Table):
         self, tag: str, count: int
     ) -> Collection[Tuple[int, datetime]]:
         query = """
-            SELECT kline.id, kline.ts
+            SELECT kline.id, MIN(kline.ts) AS kline_ts
                 FROM kline_tag
             INNER JOIN kline
                 ON kline_tag.kline_id = kline.id
             WHERE kline_tag.search_tag LIKE $1
-            ORDER BY kline.ts DESC
+            GROUP BY kline.id
+            ORDER BY kline_ts DESC
             LIMIT $2
         """
         pattern = glob_to_sql(lex_glob_pattern(tag))
