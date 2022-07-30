@@ -40,7 +40,6 @@ class Caller:
 
 
 PREFERENCES: Dict[str, type] = {"statsp": bool, "knag": bool}
-EVAL_MAX = 10
 
 
 class Server(BaseServer):
@@ -477,6 +476,16 @@ class Server(BaseServer):
         return [f"set {key} to {value}"]
 
     async def cmd_eval(self, caller: Caller, args: Sequence[str]) -> Sequence[str]:
+        if len(args) == 0:
+            return ["please provide a query"]
+
+        if len(args) == 1:
+            limit = 10
+        elif args[1].isdecimal():
+            limit = int(args[1])
+        else:
+            return [f"'{args[1]}' doesn't look like a number"]
+
         try:
             # list() because readonly_eval returns an immutable sequence
             outs_eval = list(await self.database.readonly_eval(args[0]))
@@ -487,10 +496,10 @@ class Server(BaseServer):
             return ["no results"]
 
         headers = outs_eval.pop(0)
-        outs = tabulate(outs_eval[:EVAL_MAX], headers=headers).split("\n")
+        outs = tabulate(outs_eval[:limit], headers=headers).split("\n")
 
-        if len(outs_eval) > EVAL_MAX:
-            overflow = len(outs_eval) - EVAL_MAX
+        if len(outs_eval) > limit:
+            overflow = len(outs_eval) - limit
             outs.append(f"(and {overflow} more)")
 
         return outs
