@@ -179,7 +179,7 @@ class SnoteParser(IRCParser):
         await self._database.kline.reject_hit(kline_id)
 
         found = await self._database.kline_reject.find(
-            kline_id, nickname, username, hostname, ip
+            kline_id, nickname, username, hostname
         )
         if found is not None:
             return

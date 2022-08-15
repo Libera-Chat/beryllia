@@ -53,7 +53,6 @@ class KLineRejectTable(KLineKillTable):
         nickname: str,
         username: str,
         hostname: str,
-        ip: Optional[Union[IPv4Address, IPv6Address]],
     ) -> Optional[int]:
 
         query = """
@@ -62,14 +61,12 @@ class KLineRejectTable(KLineKillTable):
             AND search_nick = $2
             AND search_user = $3
             AND search_host = $4
-            AND ip          = $5
         """
         args = [
             kline_id,
             str(self.to_search(nickname, SearchType.NICK)),
             str(self.to_search(username, SearchType.USER)),
             str(self.to_search(hostname, SearchType.HOST)),
-            ip,
         ]
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
