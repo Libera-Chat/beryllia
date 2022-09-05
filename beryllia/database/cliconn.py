@@ -179,6 +179,7 @@ class CliexitTable(Table):
         hostname: str,
         ip: Optional[Union[IPv4Address, IPv6Address]],
         reason: str,
+        server: str,
     ) -> int:
 
         query = """
@@ -192,9 +193,10 @@ class CliexitTable(Table):
                 search_host,
                 ip,
                 reason,
+                server,
                 ts
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()::TIMESTAMP)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()::TIMESTAMP)
             RETURNING id
         """
         args = [
@@ -207,6 +209,7 @@ class CliexitTable(Table):
             str(self.to_search(hostname, SearchType.HOST)),
             ip,
             reason,
+            server,
         ]
         async with self.pool.acquire() as conn:
             return await conn.fetchval(query, *args)
