@@ -24,6 +24,8 @@ from .util import try_parse_cidr, try_parse_ip, try_parse_ts
 from .util import looks_like_glob, colourise
 
 from .parse.nickserv import NickServParser
+from .parse.chanserv import ChanServParser
+from .parse.operserv import OperServParser
 from .parse.snote import SnoteParser
 
 RE_DATE = re_compile(r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})$")
@@ -131,6 +133,8 @@ class Server(BaseServer):
             self._database_init = True
 
             self._nickserv = NickServParser(database)
+            self._chanserv = ChanServParser(database)
+            self._operserv = OperServParser(database)
             self._snote = SnoteParser(database, self._config.rejects, self._kline_new)
 
         elif line.command == RPL_YOUREOPER:
@@ -164,6 +168,14 @@ class Server(BaseServer):
     async def _on_message(self, line: Line) -> None:
         if line.hostmask.nickname == "NickServ":
             await self._nickserv.handle(line)
+            return
+
+        if line.hostmask.nickname == "ChanServ":
+            await self._chanserv.handle(line)
+            return
+
+        if line.hostmask.nickname == "OperServ":
+            await self._operserv.handle(line)
             return
 
         first, _, rest = line.params[1].partition(" ")

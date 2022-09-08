@@ -15,6 +15,10 @@ from .registration import RegistrationTable
 from .email_resolve import EmailResolveTable
 from .account_freeze import AccountFreezeTable
 from .freeze_tag import FreezeTagTable
+from .channel_close import ChannelCloseTable
+from .close_tag import CloseTagTable
+from .klinechan import KLineChanTable
+from .klinechan_tag import KLineChanTagTable
 
 from ..normalise import SearchNormaliser
 
@@ -41,6 +45,10 @@ class Database(object):
         self.email_resolve = EmailResolveTable(pool, normaliser)
         self.account_freeze = AccountFreezeTable(pool, normaliser)
         self.freeze_tag = FreezeTagTable(pool, normaliser)
+        self.channel_close = ChannelCloseTable(pool, normaliser)
+        self.close_tag = CloseTagTable(pool, normaliser)
+        self.klinechan = KLineChanTable(pool, normaliser)
+        self.klinechan_tag = KLineChanTagTable(pool, normaliser)
 
     @staticmethod
     async def connect(
