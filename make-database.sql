@@ -122,6 +122,7 @@ CREATE TABLE cliexit (
     search_host  VARCHAR(64)  NOT NULL,
     ip           INET,
     reason       VARCHAR(260) NOT NULL,
+    server       VARCHAR(92),
     ts           TIMESTAMP    NOT NULL
 );
 -- for retention period bulk deletion

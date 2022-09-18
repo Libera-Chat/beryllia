@@ -135,7 +135,7 @@ class SnoteParser(IRCParser):
             cliconn_id, _ = self._cliconns.pop(nickname)
 
         await self._database.cliexit.add(
-            cliconn_id, nickname, username, hostname, ip, reason
+            cliconn_id, nickname, username, hostname, ip, reason, server
         )
 
         if not nickname in self._kline_waiting_exit:
