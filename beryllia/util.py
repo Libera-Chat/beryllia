@@ -356,6 +356,10 @@ async def recursive_mx_resolve(
         (None, "MX", email_domain),
         (None, "A", email_domain),
         (None, "AAAA", email_domain),
+        # SPF record
+        (None, "TXT", email_domain),
+        # DMARC record
+        (None, "TXT", f"_dmarc.{email_domain}"),
     ]
     resolved: List[Tuple[Optional[int], str, str]] = []
 
