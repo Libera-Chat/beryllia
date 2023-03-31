@@ -15,6 +15,12 @@ from ircstates.numerics import RPL_ENDOFRSACHALLENGE2, RPL_RSACHALLENGE2
 
 from aiodns import DNSResolver
 from aiodns.error import DNSError
+from pycares import (
+    ares_query_a_result,
+    ares_query_aaaa_result,
+    ares_query_mx_result,
+    ares_query_txt_result,
+)
 
 # not in ircstates.numerics
 RPL_STATS = "249"
@@ -373,7 +379,15 @@ async def recursive_mx_resolve(
 
         for resolve in resolves:
             record_parent_new = len(resolved)
-            resolved.append((record_parent, record_type, resolve.host))
+            record = ""
+            if isinstance(resolve, ares_query_a_result) or isinstance(resolve, ares_query_aaaa_result) or isinstance(resolve, ares_query_mx_result):
+                record = resolve.host
+            elif isinstance(resolve, ares_query_txt_result):
+                record = resolve.text
+            else:
+                continue
+
+            resolved.append((record_parent, record_type, record))
 
             if not record_type == "MX":
                 # MX is expected to resolve to a domain that will want to also
