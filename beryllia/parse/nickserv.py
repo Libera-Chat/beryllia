@@ -9,8 +9,9 @@ from ..util import recursive_mx_resolve
 
 RE_COMMAND = re_compile(
     r"^(?P<nickname>\S+)"
-    # this is optional in command output
-    r"( (?P<account>[(]\S*[)]))?"
+    # this is optional in command output. only shows up if a soper is using a
+    # nickname that isnt their soper name
+    r"( [(](?P<account>\S*)[)])?"
     r" (?P<command>\S+):"
     r"( (?P<args>.*))?$"
 )
