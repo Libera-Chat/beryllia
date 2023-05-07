@@ -140,6 +140,12 @@ class KLineTable(Table):
         """
         return await self._find_klines(where, [ts, fudge], count)
 
+    async def find_by_reason(
+        self, reason: str, count: int
+    ) -> Collection[Tuple[int, datetime]]:
+
+        return await self._find_klines("WHERE reason LIKE '%$1%'", [reason], count)
+
     async def find_by_mask_glob(
         self, mask: str, count: int
     ) -> Collection[Tuple[int, datetime]]:
