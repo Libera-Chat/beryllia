@@ -302,6 +302,8 @@ class Server(BaseServer):
             klines_ += await db.kline.find_by_ts(dt, count)
         elif type == "tag":
             klines_ += await db.kline_tag.find_klines(query, count)
+        elif type == "reason":
+            klines_ += await db.kline.find_by_reason(query, count)
         elif type == "id":
             if not query.isdecimal() or not await db.kline.exists(
                 query_id := int(query)

@@ -140,6 +140,13 @@ class KLineTable(Table):
         """
         return await self._find_klines(where, [ts, fudge], count)
 
+    async def find_by_reason(
+        self, reason: str, count: int
+    ) -> Collection[Tuple[int, datetime]]:
+
+        pattern = glob_to_sql(lex_glob_pattern(reason))
+        return await self._find_klines("WHERE reason LIKE $1", [pattern], count)
+
     async def find_by_mask_glob(
         self, mask: str, count: int
     ) -> Collection[Tuple[int, datetime]]:
