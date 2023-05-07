@@ -144,7 +144,8 @@ class KLineTable(Table):
         self, reason: str, count: int
     ) -> Collection[Tuple[int, datetime]]:
 
-        return await self._find_klines("WHERE reason LIKE '%$1%'", [reason], count)
+        pattern = glob_to_sql(lex_glob_pattern(reason))
+        return await self._find_klines("WHERE reason LIKE '%$1%'", [pattern], count)
 
     async def find_by_mask_glob(
         self, mask: str, count: int
