@@ -1,6 +1,6 @@
 aiodns       ~=3.0.0
-asyncpg      ~=0.24.0
+asyncpg      ~=0.28.0
 ircchallenge ~=0.1.2
-ircrobots    ~=0.6.1
+ircrobots    ~=0.6.6
 pyyaml       ~=5.4.1
 tabulate     ~=0.8.10

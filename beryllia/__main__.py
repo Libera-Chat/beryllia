@@ -25,8 +25,10 @@ async def main(config: Config):
     params.autojoin = autojoin
 
     await bot.add_server("beryllia", params)
-    await asyncio.gather(cron(bot), bot.run())
-
+    await asyncio.wait([
+        asyncio.create_task(cron(bot)),
+        asyncio.create_task(bot.run()),
+    ])
 
 if __name__ == "__main__":
     parser = ArgumentParser()
