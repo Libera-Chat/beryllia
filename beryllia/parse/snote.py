@@ -154,7 +154,7 @@ class SnoteParser(IRCParser):
         # "*** Notice -- Rejecting K-Lined user
         \*{3}\ Notice\ --\ Rejecting\ K-Lined\ user
         # " nick[user@host]"
-        \ (?P<nick>\S+)\[(?P<user>[^]@]+)@(?P<host>[^]]+)\]
+        \ (?P<nick>\S{1,16})\[(?P<user>[^]@]{1,10})@(?P<host>[^]]+)\]
         # " [1.2.3.4]"
         \ \[(?P<ip>\S+)\]
         # " (*@1.2.3.4)"
