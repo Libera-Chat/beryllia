@@ -307,4 +307,7 @@ class SnoteParser(IRCParser):
         if id is None:
             return
 
-        await self._database.kline_remove.add(id, source, oper)
+        try:
+            await self._database.kline_remove.add(id, source, oper)
+        except Exception:
+            pass
