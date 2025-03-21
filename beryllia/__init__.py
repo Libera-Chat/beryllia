@@ -444,7 +444,7 @@ class Server(BaseServer):
 
         match = RE_DATE.search(date)
         if match is None:
-            return ["that's not a date"]
+            return ["that's not a date, use format YYYY-MM-DD"]
 
         since_ts = datetime.strptime(match.group(0), "%Y-%m-%d")
         statsp_d = await self.database.statsp.count_since(since_ts)
