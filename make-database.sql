@@ -2,6 +2,7 @@
 -- 10  is username length
 -- 32  is kline tag length
 -- 50  is realname length
+-- 50  is channel length
 -- 64  is hostname length
 -- 92  is mask length
 -- 260 is reason length
@@ -174,6 +175,40 @@ CREATE TABLE freeze_tag (
     soper       VARCHAR(16)  NOT NULL,
     ts          TIMESTAMP    NOT NULL,
     PRIMARY KEY (freeze_id, search_tag)
+);
+
+CREATE TABLE channel_close (
+    id       SERIAL        PRIMARY KEY,
+    channel  VARCHAR(50)   NOT NULL,
+    soper    VARCHAR(16)   NOT NULL,
+    reason   VARCHAR(256)  NOT NULL,
+    ts       TIMESTAMP     NOT NULL
+);
+
+CREATE TABLE close_tag (
+    close_id    INTEGER      NOT NULL  REFERENCES channel_close (id)  ON DELETE CASCADE,
+    tag         VARCHAR(32)  NOT NULL,
+    search_tag  VARCHAR(32)  NOT NULL,
+    soper       VARCHAR(16)  NOT NULL,
+    ts          TIMESTAMP    NOT NULL,
+    PRIMARY KEY (close_id, search_tag)
+);
+
+CREATE TABLE klinechan (
+    id       SERIAL        PRIMARY KEY,
+    channel  VARCHAR(50)   NOT NULL,
+    soper    VARCHAR(16)   NOT NULL,
+    reason   VARCHAR(256)  NOT NULL,
+    ts       TIMESTAMP     NOT NULL
+);
+
+CREATE TABLE klinechan_tag (
+    klinechan_id    INTEGER      NOT NULL  REFERENCES klinechan (id)  ON DELETE CASCADE,
+    tag             VARCHAR(32)  NOT NULL,
+    search_tag      VARCHAR(32)  NOT NULL,
+    soper           VARCHAR(16)  NOT NULL,
+    ts              TIMESTAMP    NOT NULL,
+    PRIMARY KEY (klinechan_id, search_tag)
 );
 
 CREATE TABLE statsp (
